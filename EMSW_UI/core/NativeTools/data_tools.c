@@ -303,3 +303,46 @@ __declspec(dllexport) void freeList(list* n) {
     free(n);
     freeList(tmp);
 }
+__declspec(dllexport) dqueue* makeDataQueue(){
+    dqueue* queue = (dqueue*)malloc(sizeof(dqueue));
+    queue->data = NULL;
+    queue->back = NULL;
+    return queue;
+}
+__declspec(dllexport) dqueue* insertDataQueue(dqueue* queue, stack* data) {
+    dqueue* tmp = queue;
+    if (tmp == NULL) {
+        tmp = (dqueue*)malloc(sizeof(dqueue));
+        tmp->data = data;
+        tmp->back = NULL;
+        return tmp;
+    } else if (tmp->data == NULL) {
+        tmp->data = data;
+        tmp->back = NULL;
+        return tmp;
+    } else if (tmp->back == NULL) {
+        tmp->back = (dqueue*)malloc(sizeof(dqueue));
+        tmp->back->data = data;
+        return tmp;
+    } else {
+        insertDataQueue(queue->back, data);
+    }
+    return queue;
+}
+int getDQueueLength(dqueue* queue, int num) {
+    if (queue == NULL) {
+        return num;
+    } else {
+        return getDQueueLength(queue->back, num + 1);
+    }
+}
+__declspec(dllexport) int getDataQueueLength(dqueue* queue) {
+    if (queue == NULL)
+        return 0;
+    dqueue* tmp = queue;
+    if (tmp->back == NULL) {
+        return 1;
+    } else {
+        return getDQueueLength(tmp->back, 2);
+    }
+}

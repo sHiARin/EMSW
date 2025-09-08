@@ -1,4 +1,4 @@
-from ctypes import CDLL, c_wchar_p, POINTER, Structure, c_int, c_bool
+from ctypes import WinDLL, c_wchar_p, POINTER, Structure, c_int, c_bool
 
 #DLL 로드
 
@@ -11,29 +11,27 @@ Stack._fields_ = [
     ]
 class NativeTools:
     def __init__(self):
-        self.dll = CDLL(r"C:\Users\asuna\OneDrive\Project\EMSW(Echo Mind SubWriter)\EMSW_UI\core\NativeTools\libDataTools.dll")
+        self.dll = WinDLL(r"D:\Project\EMSW(Echo Mind SubWriter)\EMSW_UI\core\NativeTools\libDataTools.dll")
 class CharStack(NativeTools):
-    #stackPtr 전역 클래스 변수
-    stackPtr = POINTER(Stack)
     # dll을 초기화하고, makeStack 반환형을 지정.
     def __init__(self):
-        super()
-        self.dll.makeStack.restype = self.stackPtr
+        super().__init__()
+        self.dll.makeStack.restype = POINTER(Stack)
         self.stack = self.dll.makeStack()
     # push의 args와 return type을 설정하고, push를 래핑한다.
     def push(self, text:str):
         if text.__len__() != 1:
             raise ValueError('1개의 문자만 입력할 수 있습니다.')
-        self.dll.push.argtypes=[self.stackPtr, c_wchar_p]
-        self.dll.push.restype=self.stackPtr
+        self.dll.push.argtypes=[POINTER(Stack), c_wchar_p]
+        self.dll.push.restype=POINTER(Stack)
 
         self.stack = self.dll.push(self.stack, c_wchar_p(text))
     # 문장을 스텍에 push하는 것이다.
     def pushSentence(self, text:str):
         if text.__len__() == 1:
             raise ValueError('2개 이상의 문자만 입력할 수 있습니다.')
-        self.dll.push.argtypes=[self.stackPtr, c_wchar_p]
-        self.dll.push.restype=self.stackPtr
+        self.dll.push.argtypes=[POINTER(Stack), c_wchar_p]
+        self.dll.push.restype=POINTER(Stack)
         
         for t in text:
             tmp = c_wchar_p(t)
@@ -43,8 +41,6 @@ class CharStack(NativeTools):
         self.dll.pop.argtypes = [POINTER(POINTER(Stack))]
         self.dll.pop.restype = c_wchar_p
         return self.dll.pop(self.stack)
-    def free(self):
-        self.dll.free.argtypes = [self.stackPtr]
     #stack의 데이터를 리버스해서 그대로 또 다른 Stack을 반환함
     def get_reverse(self):
         tmp = []
@@ -99,23 +95,25 @@ class CharStack(NativeTools):
                 break
             yield current.contents.txt
             current = current.contents.node
+    def __get__(self):
+        return self.stack
     # stack의 길이를 반환한다.
     def len(self):
         t = [t for t in self.__iter__()]
         return t.__len__()
     # 똑같은 값을 갖는 다른 스택을 반환한다.
     def copy(self):
-        self.dll.copy.argtypes = [self.stackPtr]
-        self.dll.copy.restype = self.stackPtr
-        self.dll.freeStack.argtypes = [self.stackPtr]
+        self.dll.copy.argtypes = [POINTER(Stack)]
+        self.dll.copy.restype = POINTER(Stack)
+        self.dll.freeStack.argtypes = [POINTER(Stack)]
         tmp = CharStack()
         self.dll.freeStack(tmp.stack)
         tmp.stack = self.dll.copy(self.stack)
         return tmp
     # 스텍의 메모리를 리스트로 반환한다.
     def list_ptr(self):
-       self.dll.getPtr.argtypes = [self.stackPtr]
-       self.dll.getPtr.restype = self.stackPtr
+       self.dll.getPtr.argtypes = [POINTER(Stack)]
+       self.dll.getPtr.restype = POINTER(Stack)
        return [self.dll.getPtr(t) for t in self.__iter__()]
     # 스택의 주소값의 iterator로 만들어준다.
     def __iter_node__(self):
@@ -125,7 +123,7 @@ class CharStack(NativeTools):
             current = current.contents.node
     # 순차적으로 모든 스택을 지운다. 클래스가 삭제될때 항상 호출된다.
     def __del__(self):
-        self.dll.freeStack.argtypes = [self.stackPtr]
+        self.dll.freeStack.argtypes = [POINTER(Stack)]
         for t in self.__iter_node__():
             self.dll.freeStack(t)
     # stack을 콜 하면 stack 구조체 그 자체를 반환한다.
@@ -319,6 +317,29 @@ class StackList(NativeTools):
     def __del__(self):
         self.dll.freeList.argtype = [POINTER(List)]
         self.dll.freeList(self.list)
-
-if __name__ == '__main__':
-    st = CharStack()
+class D_Queue(Structure):
+    pass
+D_Queue._fields_ = [
+    ('data', POINTER(Stack)),
+    ('back', POINTER(D_Queue))
+]
+#Data Queue는 각 데이터를 Stack으로 관리할 수 있는 데이터 구조이다.
+class DataQueue(NativeTools):
+    def __init__(self):
+        super().__init__()
+        self.dll.makeDataQueue.restype = POINTER(D_Queue)
+        self.dqueue = self.dll.makeDataQueue()
+    def insert(self, stack):
+        self.dll.insertDataQueue.argtypes = [POINTER(D_Queue), POINTER(Stack)]
+        self.dll.insertDataQueue.restype = POINTER(D_Queue)
+        if not isinstance(stack, POINTER(Stack)):
+            return -1
+        self.dqueue = self.dll.insertDataQueue(self.dqueue, stack)
+        return 0
+    def __iter__(self):
+        current = self.dqueue
+        while current:
+            if current is None:
+                break
+            yield current.contents.data
+            current = current.contents.back
