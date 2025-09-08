@@ -352,3 +352,7 @@ class DataQueue(NativeTools):
                 break
             yield current.contents.data
             current = current.contents.back
+    def __len__(self):
+        self.dll.getDataQueueLength.argtypes = [POINTER(D_Queue)]
+        self.dll.getDataQueueLength.restype = c_int
+        return self.dll.getDataQueueLength(self.dqueue)
