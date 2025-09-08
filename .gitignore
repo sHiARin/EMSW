@@ -1,0 +1,11 @@
+# test가 들어간 파일 무시
+
+*test*
+
+# 프로젝트 루트에 있는 dll과 exp, obj 무시
+/*.exp
+/*.lib
+/*.obj
+
+# .vscode 이하의 파일 무시
+.vscode

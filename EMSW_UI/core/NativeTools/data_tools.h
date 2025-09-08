@@ -17,9 +17,14 @@ struct Node {
     struct Node* right;
     int pos;
 } typedef List;
+struct DataQueueNode {
+    struct DataQueueNode* back;
+    Stack* data;
+} typedef D_Queue;
 
 #define stack Stack
 #define list List
+#define dqueue D_Queue
 
 __declspec(dllexport) stack* makeStack();                                                       // make stack for memory
 __declspec(dllexport) stack* push(stack* st, wchar_t* txt);                                     // stack data push
@@ -44,5 +49,8 @@ __declspec(dllexport) bool rightNone(list* n);                                  
 __declspec(dllexport) bool posCheck(list* n, int pos);                                          // node pos check
 __declspec(dllexport) int appendLeft(list* left, stack* data, int pos);                         // append data left search
 __declspec(dllexport) int appendRight(list* right, stack* data, int pos);                       // append data right search
+__declspec(dllexport) dqueue* makeDataQueue();                                                  // make data Queue when need 
+__declspec(dllexport) dqueue* insertDataQueue(dqueue* queue, stack* data);                      // insert dqueue stack data
+__declspec(dllexport) int getDataQueueLength(dqueue* queue);                                    // get DataQueue Length
 
 #endif
