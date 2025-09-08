@@ -132,102 +132,109 @@ class CharStack(NativeTools):
             raise('NULL Data')
         return self.stack
     # set을 호출하면 stack 구조체를 받아서 스텍 값으로 삽입한다.
-    def setStack(self, stack:POINTER(Stack)):
+    def setStack(self, stack):
+        if not isinstance(stack, POINTER(Stack)):
+            return -1
         self.stack = stack
+        return 0
 # C Stack 메모리를 받아 string 값만 추출해내는 함수
-def stack_str(stack_ptr : POINTER(Stack)):
+def stack_str(stack_ptr):
+    if isinstance(stack_ptr, POINTER(Stack)):
+        return -1
     tmp_Stack = CharStack()
     tmp_Stack.setStack(stack_ptr)
     return tmp_Stack.__str__()
 # List 자료구조의 구조체를 정의한다.
-class List(Structure):
+class CList(Structure):
     pass
-List._fields_ = [
+CList._fields_ = [
     ('data', POINTER(Stack)),
-    ('left', POINTER(List)),
-    ('right', POINTER(List)),
+    ('left', POINTER(CList)),
+    ('right', POINTER(CList)),
     ('pos', c_int)
 ]
 # Char List를 정의한 클래스
 class StackList(NativeTools):
     # List의 포인터 변수
-    listPtr = POINTER(List)
+    listPtr = POINTER(CList)
     # dll을 초기화하고, makeList를 호출하여 리스트를 초기화 한다.
     def __init__(self):
         super()
-        self.dll.makeList.restype = POINTER(List)
+        self.dll.makeList.restype = POINTER(CList)
         self.list = self.dll.makeList()
     # List에 Stack 데이터를 추가한다.
     def append(self, data:CharStack):
         self.dll.appendNode.argtypes = [self.listPtr, POINTER(Stack)]
-        self.dll.appendNode.restype = POINTER(List)
+        self.dll.appendNode.restype = POINTER(CList)
         res = self.dll.appendNode(self.list, data.stack)
         if not res:
             raise('Cannot Append Data!')
     # data를 stack으로 치환한다.
-    def convertStack(self, stack:POINTER(Stack)):
+    def convertStack(self, stack):
+        if not isinstance(stack, POINTER(Stack)):
+            return -1
         tmp = CharStack()
         tmp.setStack(stack)
         return tmp
     # list의 길이를 가져온다.
     def len(self):
-        self.dll.len.argtypes = [POINTER(List)]
+        self.dll.len.argtypes = [POINTER(CList)]
         self.dll.len.restype = c_int
         return self.dll.len(self.list)
     # 가장 앞의 노드의 데이터를 반환한다. (메모리는 지우지 않는다.)
     def forward(self):
-        self.dll.getData.argtypes = [POINTER(List)]
+        self.dll.getData.argtypes = [POINTER(CList)]
         self.dll.getData.restype = POINTER(Stack)
         if self.list is None:
             raise ('Pointer Error! Not Initialization!')
         return self.convertStack(self.dll.getData(self.list))
     def backward(self):
-        self.dll.getData.argtypes = [POINTER(List)]
+        self.dll.getData.argtypes = [POINTER(CList)]
         self.dll.getData.restype = POINTER(Stack)
-        self.dll.rightNone.argtypes = [POINTER(List)]
+        self.dll.rightNone.argtypes = [POINTER(CList)]
         self.dll.rightNone.restype = c_bool
-        self.dll.getRight.argtypes = [POINTER(List)]
-        self.dll.getRight.restype = POINTER(List)
+        self.dll.getRight.argtypes = [POINTER(CList)]
+        self.dll.getRight.restype = POINTER(CList)
         if self.dll.rightNone(self.list):
             raise ('Pointer Error! NULL Pointer!')
         return self.convertStack(self.dll.getData(self.getRight()))
     def getLeft(self):
-        self.dll.leftNone.argtypes = [POINTER(List)]
+        self.dll.leftNone.argtypes = [POINTER(CList)]
         self.dll.leftNone.restype = c_bool
-        self.dll.getLeft.argtypes = [POINTER(List)]
-        self.dll.getLeft.restype = POINTER(List)
+        self.dll.getLeft.argtypes = [POINTER(CList)]
+        self.dll.getLeft.restype = POINTER(CList)
         if self.dll.leftNone(self.list) is None:
             raise ('Pointer Error! NULL Pointer!')
         return self.dll.getLeft(self.list)
     def getRight(self):
-        self.dll.rightNone.argtypes = [POINTER(List)]
+        self.dll.rightNone.argtypes = [POINTER(CList)]
         self.dll.rightNone.restype = c_bool
-        self.dll.getRight.argtypes = [POINTER(List)]
-        self.dll.getRight.restype = POINTER(List)
+        self.dll.getRight.argtypes = [POINTER(CList)]
+        self.dll.getRight.restype = POINTER(CList)
         if self.dll.rightNone(self.list):
             raise ('Pointer Error! NULL Pointer!')
         return self.dll.getRight(self.list)
     def appendForward(self, data:CharStack):
-        self.dll.appendForward.argtypes = [POINTER(List), POINTER(Stack)]
-        self.dll.appendForward.restype = POINTER(List)
-        self.dll.rightNone.argtypes = [POINTER(List)]
+        self.dll.appendForward.argtypes = [POINTER(CList), POINTER(Stack)]
+        self.dll.appendForward.restype = POINTER(CList)
+        self.dll.rightNone.argtypes = [POINTER(CList)]
         self.dll.rightNone.restype = c_bool
         if self.dll.rightNone(self.list):
             raise ('Pointer Error! NULL Pointer!')
         print(type(data.__call__()))
         self.list = self.dll.appendForward(self.list, data.__call__())
     def appendPos(self, data:CharStack, pos:int):
-        self.dll.rightNone.argtypes = [POINTER(List)]
+        self.dll.rightNone.argtypes = [POINTER(CList)]
         self.dll.rightNone.restype = c_bool
-        self.dll.posCheck.argtypes = [POINTER(List), c_int]
+        self.dll.posCheck.argtypes = [POINTER(CList), c_int]
         self.dll.posCheck.restype = c_bool
-        self.dll.getLeft.argtypes = [POINTER(List)]
-        self.dll.getLeft.restype = POINTER(List)
-        self.dll.getRight.argtypes = [POINTER(List)]
-        self.dll.getRight.restype = POINTER(List)
-        self.dll.appendLeft.argtypes = [POINTER(List), POINTER(Stack), c_int]
+        self.dll.getLeft.argtypes = [POINTER(CList)]
+        self.dll.getLeft.restype = POINTER(CList)
+        self.dll.getRight.argtypes = [POINTER(CList)]
+        self.dll.getRight.restype = POINTER(CList)
+        self.dll.appendLeft.argtypes = [POINTER(CList), POINTER(Stack), c_int]
         self.dll.appendLeft.restype = POINTER(c_int)
-        self.dll.appendRight.argtypes = [POINTER(List), POINTER(Stack), c_int]
+        self.dll.appendRight.argtypes = [POINTER(CList), POINTER(Stack), c_int]
         self.dll.appendRight.restype = POINTER(c_int)
         if (self.len() < pos):
             raise ('Value Error! Pos Over the Length')
@@ -248,18 +255,20 @@ class StackList(NativeTools):
             raise ('next left node NULL! NULL Exception')
         elif check == -3:
             raise ('data is NULL! NULL Exception')
-    def makeList(self, list:POINTER(List)):
+    def makeList(self, L):
+        if not isinstance(L, POINTER(CList)):
+            return -1
         tmp = StackList()
-        tmp.list = list
+        tmp.list = L
         return tmp
     def atPos(self, pos:int):
-        self.dll.getLeft.argtypes = [POINTER(List)]
-        self.dll.getLeft.restype = POINTER(List)
-        self.dll.getRight.argtypes = [POINTER(List)]
-        self.dll.getRight.restype = POINTER(List)
-        self.dll.getData.argtypes = [POINTER(List)]
+        self.dll.getLeft.argtypes = [POINTER(CList)]
+        self.dll.getLeft.restype = POINTER(CList)
+        self.dll.getRight.argtypes = [POINTER(CList)]
+        self.dll.getRight.restype = POINTER(CList)
+        self.dll.getData.argtypes = [POINTER(CList)]
         self.dll.getData.restype = POINTER(Stack)
-        self.dll.findDataFromPosition.argtypes = [POINTER(List), POINTER(List), c_int]
+        self.dll.findDataFromPosition.argtypes = [POINTER(CList), POINTER(CList), c_int]
         self.dll.findDataFromPosition.restype = POINTER(Stack)
         if self.len() < pos:
             raise ('Error! over range exception!')
@@ -272,16 +281,16 @@ class StackList(NativeTools):
             return stack_str(self.dll.findDataFromPosition(self.dll.getLeft(self.list), self.dll.getRight(self.list), pos))
     #최초의 data의 위치를 반홚함
     def atData(self, data:CharStack):
-        self.dll.findPositionFromData.argtypes = [POINTER(List), POINTER(List), POINTER(Stack)]
+        self.dll.findPositionFromData.argtypes = [POINTER(CList), POINTER(CList), POINTER(Stack)]
         self.dll.findPositionFromData.restype = c_int
-        self.dll.getRight.argtypes = [POINTER(List)]
-        self.dll.getRight.restype = POINTER(List)
+        self.dll.getRight.argtypes = [POINTER(CList)]
+        self.dll.getRight.restype = POINTER(CList)
         current = self.dll.findPositionFromData(self.list, self.dll.getRight(self.list), data.stack)
         return current
     def __iter_pos__(self):
-        self.dll.getLeft.argtypes = [POINTER(List)]
-        self.dll.getLeft.restype = POINTER(List)
-        self.dll.leftNone.argtypes = [POINTER(List)]
+        self.dll.getLeft.argtypes = [POINTER(CList)]
+        self.dll.getLeft.restype = POINTER(CList)
+        self.dll.leftNone.argtypes = [POINTER(CList)]
         self.dll.leftNone.restype = c_bool
         current = self.list
         while True:
@@ -292,15 +301,15 @@ class StackList(NativeTools):
             if not current:
                 break
     def __iter__(self):
-        self.dll.getLeft.argtypes = [POINTER(List)]
-        self.dll.getLeft.restype = POINTER(List)
-        self.dll.getData.argtypes = [POINTER(List)]
+        self.dll.getLeft.argtypes = [POINTER(CList)]
+        self.dll.getLeft.restype = POINTER(CList)
+        self.dll.getData.argtypes = [POINTER(CList)]
         self.dll.getData.restype = POINTER(Stack)
-        self.dll.leftNone.argtypes = [POINTER(List)]
+        self.dll.leftNone.argtypes = [POINTER(CList)]
         self.dll.leftNone.restype = c_bool
-        self.dll.rightNone.argtypes = [POINTER(List)]
+        self.dll.rightNone.argtypes = [POINTER(CList)]
         self.dll.rightNone.restype = c_bool
-        self.dll.pos.argtypes = [POINTER(List)]
+        self.dll.pos.argtypes = [POINTER(CList)]
         self.dll.pos.restype = c_int
         current = self.list
         while current:
@@ -315,7 +324,7 @@ class StackList(NativeTools):
             if self.dll.pos(current) == 1:
                 break
     def __del__(self):
-        self.dll.freeList.argtype = [POINTER(List)]
+        self.dll.freeList.argtype = [POINTER(CList)]
         self.dll.freeList(self.list)
 class D_Queue(Structure):
     pass
