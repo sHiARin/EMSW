@@ -8,6 +8,8 @@ from PySide6.QtGui import (QKeyEvent, QAction, QStandardItemModel,
 from PySide6.QtCore import Qt, Signal, QTimer
 from enum import Enum, unique
 
+from Config.config import conf
+
 import os, json
 
 # 메인 메뉴의 액션을 구분하기 위한 전용 클래스
@@ -210,12 +212,22 @@ class EMSWTreeView(QWidget):
     def __init__(self, root_dir:str):
         super().__init__()
         print(root_dir)
-        self.root = root_dir
-        self.child = os.listdir(root_dir)
-        self.treeView = QTreeView(self)
-        self.model = QStandardItemModel()
-        self.__start__()
-        self.init_ui()
+        self.blakTr = True
+        if root_dir != '':
+            self.root = root_dir
+            self.child = os.listdir(root_dir)
+            self.treeView = QTreeView(self)
+            self.model = QStandardItemModel()
+            self.blakTr = False
+            self.__start__()
+            self.init_ui()
+        else:
+            self.root = 'blank'
+            self.child = []
+            self.treeView = QTreeView(self)
+            self.model = QStandardItemModel()
+            self.__start__
+            self.init_ui()
     def __start__(self):
         self.novels = []
         if 0 < len(self.root):
@@ -263,27 +275,40 @@ class EMSWTreeView(QWidget):
         else:
             pass
     def init_ui(self):
-        vlayout = QVBoxLayout()
-        vlayout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        if not self.blakTr:
+            vlayout = QVBoxLayout()
+            vlayout.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        new_novel = QPushButton('새 소설')
-        self.treeView.setModel(self.model)
+            new_novel = QPushButton('새 소설')
+            self.treeView.setModel(self.model)
         
-        vlayout.addWidget(new_novel)
-        vlayout.addWidget(self.treeView)
-        self.setLayout(vlayout)
+            vlayout.addWidget(new_novel)
+            vlayout.addWidget(self.treeView)
+            self.setLayout(vlayout)
+        else:
+            vlayout = QVBoxLayout()
+            vlayout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            new_novel = QPushButton('새 소설')
+            self.treeView.setModel(self.model)
+            label = QLabel()
+            label.setText('빈 소설')
+            vlayout.addWidget(new_novel)
+            vlayout.addWidget(label)
+            self.setLayout(vlayout)
 # EMSW 기능을 수행하는 MainUI.
 # EMSW 기능이란 작가가 본인 스스로 데이터 맵을 구축하여 창작에 도움이 될 수 있는 프로젝트이다.
 # 좀 더 목적을 밝히자면, 이전에 쓴 내용을 불러와 참고하거나, 이전에 쓴 글의 내용으로 지금 집필하는 내용의 소설에 도움을 받기 위해 사용하는 프로젝트다.
 class EMSW(QMainWindow):
-    def __init__(self, windowPosX:int, windowPosY:int, windowSizeWidth:int, windowSizeHeight:int):
+    def __init__(self, config:conf):
         super().__init__()
         # window의 사이즈를 정의한다.
-        self.windowPosX = windowPosX
-        self.windowPosY = windowPosY
-        self.windowSizeWidth = windowSizeWidth
-        self.windowSizeHeight = windowSizeHeight
-        self.programeInfo = 'D:/Project/EMSW(Echo Mind SubWriter)/ProgrameData.json'
+        self.windowPosX = config.windows_config['windows_pos_x']
+        self.windowPosY = config.windows_config['windows_pos_y']
+        self.windowSizeWidth = config.windows_config['windows_scale_width']
+        self.windowSizeHeight = config.windows_config['windows_scale_height']
+        self.programeInfo = config.programe_data['LastOpenDir']
+        self.projectList = config.programe_data['ProjectDirs']
+        self.config = config
         #windows 프로그램을 시작하며, 기초 데이터를 설정하고, UI를 만든다.
         self.__start__()
         self.time = QTimer(self)
@@ -345,18 +370,28 @@ class EMSW(QMainWindow):
     def __start__(self):
         print('programe Start')
         self.dir = ''
-        self.LoadProgrameSetting()
+        if self.programeInfo != r'C:\Users':
+            self.LoadProgrameSetting()
         if self.dir != '':
             self.trView = EMSWTreeView(self.dir)
+        if self.dir == '':
+            self.trView = EMSWTreeView('')
         self.ProgrameSignal = ProgrameAction.ProgrameStart
         self.MainBoard = QWidget()
         self.makeMenu()
         self.setWindowTitle('EMSW')
         self.setGeometry(self.windowPosX, self.windowPosY, self.windowSizeWidth, self.windowSizeHeight)
         print('success start')
+    def Update_windows_position(self):
+        if (self.x != self.config.windows_config['windows_pos_x']) or (self.y != self.config.windows_config['windows_pos_y']):
+            self.config.updatePosition(self.x, self.y)
+    def Update_windows_Scale(self):
+        if (self.width != self.config.windows_config['windows_scale_width']) or (self.height != self.config.windows_config['windows_scale_height']):
+            self.config.updateScale(self.width, self.height)
     # update에서 가장 빨리 호출되는 메소드.
     # 주로 데이터의 업데이트를 담당하는 함수가 연결된다.
     def __fixed_update__(self):
+        # 현재 윈도우의 위치를 받아와 갱신한다.
         self.FixedUpdate()
         pass
     def FixedUpdate(self):
@@ -369,9 +404,7 @@ class EMSW(QMainWindow):
     def __update__(self):
         self.__fixed_update__()
         # __update__에서 처리하는 내용은 여기에 구현한다.
-
         self.__last_update__()
-    
     # 가장 나중에 업데이트되는 메소드. initUI 보다도 나중에 호출된다.
     def __last_update__(self):
         self.LastUpdate()
@@ -419,10 +452,12 @@ class EMSW(QMainWindow):
     # UI를 설정한다. 또한, 각 객체가 모습을 바꿀 때마다 __last_update__를 통해 호출된다.
     def initUI(self):
         hLayout = QHBoxLayout()
-        hLayout.addWidget(self.trView)
+        if self.trView != None:
+            hLayout.addWidget(self.trView)
         self.MainBoard.setLayout(hLayout)
         self.setCentralWidget(self.MainBoard)
         self.show()
+    # 창이 닫힐때 실행되는 동작을 정의한다.
+    # 프로젝트가 닫히는 절차를 정의한다.
     def closeEvent(self, event):
-        with open(self.programeInfo, 'w', encoding='utf-8') as file:
-            json.dump(self.programeDataFrame, file)
+        pass

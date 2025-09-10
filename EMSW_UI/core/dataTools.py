@@ -159,7 +159,7 @@ class StackList(NativeTools):
     listPtr = POINTER(CList)
     # dll을 초기화하고, makeList를 호출하여 리스트를 초기화 한다.
     def __init__(self):
-        super()
+        super().__init__()
         self.dll.makeList.restype = POINTER(CList)
         self.list = self.dll.makeList()
     # List에 Stack 데이터를 추가한다.
@@ -177,7 +177,7 @@ class StackList(NativeTools):
         tmp.setStack(stack)
         return tmp
     # list의 길이를 가져온다.
-    def len(self):
+    def __len__(self):
         self.dll.len.argtypes = [POINTER(CList)]
         self.dll.len.restype = c_int
         return self.dll.len(self.list)
@@ -215,14 +215,12 @@ class StackList(NativeTools):
             raise ('Pointer Error! NULL Pointer!')
         return self.dll.getRight(self.list)
     def appendForward(self, data:CharStack):
+        print(type(data))
+        print(type(data.stack))
+        print(data.stack == None)
         self.dll.appendForward.argtypes = [POINTER(CList), POINTER(Stack)]
         self.dll.appendForward.restype = POINTER(CList)
-        self.dll.rightNone.argtypes = [POINTER(CList)]
-        self.dll.rightNone.restype = c_bool
-        if self.dll.rightNone(self.list):
-            raise ('Pointer Error! NULL Pointer!')
-        print(type(data.__call__()))
-        self.list = self.dll.appendForward(self.list, data.__call__())
+        self.list = self.dll.appendForward(self.list, data.stack)
     def appendPos(self, data:CharStack, pos:int):
         self.dll.rightNone.argtypes = [POINTER(CList)]
         self.dll.rightNone.restype = c_bool
@@ -325,34 +323,11 @@ class StackList(NativeTools):
                 break
     def __del__(self):
         self.dll.freeList.argtype = [POINTER(CList)]
+        if self.list == None:
+            return -2
         self.dll.freeList(self.list)
-class D_Queue(Structure):
-    pass
-D_Queue._fields_ = [
-    ('data', POINTER(Stack)),
-    ('back', POINTER(D_Queue))
-]
-#Data Queue는 각 데이터를 Stack으로 관리할 수 있는 데이터 구조이다.
-class DataQueue(NativeTools):
-    def __init__(self):
-        super().__init__()
-        self.dll.makeDataQueue.restype = POINTER(D_Queue)
-        self.dqueue = self.dll.makeDataQueue()
-    def insert(self, stack):
-        self.dll.insertDataQueue.argtypes = [POINTER(D_Queue), POINTER(Stack)]
-        self.dll.insertDataQueue.restype = POINTER(D_Queue)
-        if not isinstance(stack, POINTER(Stack)):
+        if self.list == None:
+            return 0
+        else:
             return -1
-        self.dqueue = self.dll.insertDataQueue(self.dqueue, stack)
-        return 0
-    def __iter__(self):
-        current = self.dqueue
-        while current:
-            if current is None:
-                break
-            yield current.contents.data
-            current = current.contents.back
-    def __len__(self):
-        self.dll.getDataQueueLength.argtypes = [POINTER(D_Queue)]
-        self.dll.getDataQueueLength.restype = c_int
-        return self.dll.getDataQueueLength(self.dqueue)
+        
