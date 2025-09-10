@@ -1,12 +1,13 @@
 from EMSW_UI.EMSW_MainUI import EMSW
-
+from Config.config import conf
 from PySide6.QtWidgets import QApplication
 
 import sys
 
 def main():
+    config = conf()
     app = QApplication(sys.argv)
-    m_app = EMSW(150, 150, 1200, 850)
+    m_app = EMSW(config)
     app.exec()
 
 if __name__ == '__main__':

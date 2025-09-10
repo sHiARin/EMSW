@@ -190,20 +190,19 @@ __declspec(dllexport) list* appendForward(list* n, stack* data) {
         n->right = NULL;
         return n;
     } else if (n->right == NULL & n->left == NULL) {
-        n = (list*)malloc(sizeof(list));
+        list* tmp = (list*)malloc(sizeof(list));
+        tmp->left = n;
+        tmp->right = n;
+        n->left = tmp
+        n->right = tmp;
+        return tmp;
     }
-    list* tmp = n;
-    list* rmp = n->right;
-    list* ttmp = makeList();
-    ttmp->left = tmp;
-    ttmp->right = rmp;
-    rmp->left = ttmp;
-    ttmp->pos = 1;
-    ttmp->data = data;
-    tmp->right = ttmp;
-    tmp->pos += 1;
-    left_pos(tmp->left);
-    return ttmp;
+    list* tmp = (list*)malloc(sizeof(list));
+    tmp->left = n->left
+    n->left->right = tmp;
+    tmp->right = n;
+    n->left = tmp;
+    return n;
 }
 __declspec(dllexport) bool posCheck(list* n, int pos) {
     if (n->pos == pos) {
@@ -291,58 +290,10 @@ __declspec(dllexport) int appendRight(list* right, stack* data, int pos) {
     return appendRight(right->right, data, pos);
 }
 __declspec(dllexport) void freeList(list* n) {
-    if (n == NULL) {
-        return;
-    }
-    freeStack(n->data);
-    list* tmp = n->right;
-    n->left->right = NULL;
-    n->left = NULL;
-    n->right = NULL;
-    tmp->left = NULL;
+    if (n == NULL) return;
+    else if (n->data == NULL){ free(n); return; }
+    list* tmp = n->left;
+    if (tmp) tmp->right = NULL;
     free(n);
     freeList(tmp);
-}
-__declspec(dllexport) dqueue* makeDataQueue(){
-    dqueue* queue = (dqueue*)malloc(sizeof(dqueue));
-    queue->data = NULL;
-    queue->back = NULL;
-    return queue;
-}
-__declspec(dllexport) dqueue* insertDataQueue(dqueue* queue, stack* data) {
-    dqueue* tmp = queue;
-    if (tmp == NULL) {
-        tmp = (dqueue*)malloc(sizeof(dqueue));
-        tmp->data = data;
-        tmp->back = NULL;
-        return tmp;
-    } else if (tmp->data == NULL) {
-        tmp->data = data;
-        tmp->back = NULL;
-        return tmp;
-    } else if (tmp->back == NULL) {
-        tmp->back = (dqueue*)malloc(sizeof(dqueue));
-        tmp->back->data = data;
-        return tmp;
-    } else {
-        insertDataQueue(queue->back, data);
-    }
-    return queue;
-}
-int getDQueueLength(dqueue* queue, int num) {
-    if (queue == NULL) {
-        return num;
-    } else {
-        return getDQueueLength(queue->back, num + 1);
-    }
-}
-__declspec(dllexport) int getDataQueueLength(dqueue* queue) {
-    if (queue == NULL)
-        return 0;
-    dqueue* tmp = queue;
-    if (tmp->back == NULL) {
-        return 1;
-    } else {
-        return getDQueueLength(tmp->back, 2);
-    }
 }
