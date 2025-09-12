@@ -1,2 +1,7 @@
 2025-09-08
 EMSW_UI에 Todo 작업 처리.
+
+2025-09-10
+EMSW_UI에 Todo 작업 내용 처리. Original#001-1로 명명
+C 모듈은 구현된 부분을 손봐서 별도 모듈을 만드는 것을 추천.
+내일은 EMSW_UI의 TreeView를 완성시키고, 기존의 LinkedList의 appendFront의 오류를 고칠 것. 중간에 null pointer exception이 발생함.

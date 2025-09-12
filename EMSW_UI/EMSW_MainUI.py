@@ -388,20 +388,30 @@ class EMSW(QMainWindow):
     def Update_windows_Scale(self):
         if (self.width != self.config.windows_config['windows_scale_width']) or (self.height != self.config.windows_config['windows_scale_height']):
             self.config.updateScale(self.width, self.height)
-    # update에서 가장 빨리 호출되는 메소드.
-    # 주로 데이터의 업데이트를 담당하는 함수가 연결된다.
-    def __fixed_update__(self):
-        # 현재 윈도우의 위치를 받아와 갱신한다.
-        self.FixedUpdate()
+    def __setTreeView__(self):
         pass
+    # update에서 가장 빨리 호출되는 메소드.
+    # 주로 데이터의 업데이트, 또는 갱신을 담당하는 메소드 또는 함수가 연결된다.
+    def __fixed_update__(self):
+        #windows의 창 모양에 대한 메소드는 여기에서 호출
+        self.FixedUpdate()
     def FixedUpdate(self):
         if self.dir == '':
             pass
         elif self.ProgrameSignal == ProgrameAction.SetTheProjectDir:
             self.trView.setRoot(self.dir)
             self.ProgrameSignal = ProgrameAction.ProgrameDuring
+    def windowsUpdate(self):
+        pos = self.pos()
+        scale = self.geometry()
+        if ((pos.x() != self.config.windows_config['windows_pos_x']) or (pos.y() != self.config.windows_config['windows_pos_y'])):
+            self.config.updatePosition(pos.x(), pos.y())
+        if ((scale.width() != self.config.windows_config['windows_scale_width']) or (scale.height() != self.config.windows_config['windows_scale_height'])):
+            self.config.updateScale(scale.width(), scale.height())
     # 주기적으로 업데이트되는 메소드. 또한, initUI를 호출하여 주기적으로 프로그램의 UI를 변경한다.
     def __update__(self):
+        #모든 update가 동작하기 전, 반드시 실행해야 하는 동작은 여기에 구현
+        self.windowsUpdate()
         self.__fixed_update__()
         # __update__에서 처리하는 내용은 여기에 구현한다.
         self.__last_update__()

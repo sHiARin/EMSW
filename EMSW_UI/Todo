@@ -2,5 +2,13 @@ original#001
 TreeView에 추가시킬 DataQueue를 만들 것.
 TreeView에 추가시킨 DataQueue를 만들고, TreeView를 완성시키면 original#002로 네이밍한다.
 
-original@001 update-001
+original#001 update-001
 DataTools, DataQueue Insert, iter test clear.
+
+original#001-1 update-001
+update 내용을 취소하고, 다시 돌아가서 처음부터 작업.
+C 모듈을 유지할지, 삭제할지 검토.
+
+original#001-2 update-002
+TreeView를 완성, 여기서 TreeView는 비어있을 경우, FixedScale을 통해 windows size에 맞춰 바뀌도록 설정.
+LastUpdate에서 windows size를 수신하여 갱신.
