@@ -8,7 +8,7 @@ class conf:
         self.openError = False
         if 'windows_config.json' not in dir_lists:
             self.startWindows()
-        if 'ProjectDirectories' not in dir_lists:
+        if 'ProjectDirectories.json' not in dir_lists:
             self.programeLoad()
         try:
             if os.path.isfile('./data/windows_config.json'):
@@ -52,8 +52,10 @@ class conf:
             self.programeLoad()
         if 'treeview_width' not in self.windows_config.keys():
             self.windows_config['treeview_width'] = self.windows_config['windows_scale_width'] / 5
-        elif 'treeviwe_height' not in self.windows_config.keys():
+        if 'treeviwe_height' not in self.windows_config.keys():
             self.windows_config['treeview_height'] = self.windows_config['windows_scale_height'] - 50
+        if 'widget_align' not in self.windows_config.keys():
+            self.windows_config['widget_align'] = 'left'
     # pos를 업데이트하는 메소드
     def updatePosition(self, x:int, y:int):
         self.windows_config['windows_pos_x'] = x
@@ -66,12 +68,17 @@ class conf:
         self.updated = True
     def AppenddProjectDir(self, dir:str):
         dirs = list(self.programe_data['ProjectDirs'])
-        if dir not in dirs:
+        print(dirs)
+        if dir in dirs:
+            pass
+        else:
             dirs.append(dir)
+            self.programe_data['ProjectDirs'] = dirs
         if dir != self.programe_data['LastOpenDir']:
             self.programe_data['LastOpenDir'] = dir
         self.updated = True
     def __del__(self):
+        print(self.programe_data.values())
         if self.updated:
             with open('./data/windows_config.json', 'w', encoding='utf-8') as file:
                 json.dump(self.windows_config, file)
