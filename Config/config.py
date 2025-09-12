@@ -5,16 +5,24 @@ class conf:
         if 'data' not in os.listdir('./'):
             os.mkdir('./data')
         dir_lists = os.listdir('./data')
+        self.openError = False
         if 'windows_config.json' not in dir_lists:
             self.startWindows()
         if 'ProjectDirectories' not in dir_lists:
             self.programeLoad()
-        if os.path.isfile('./data/windows_config.json'):
-            with open('./data/windows_config.json', mode='r', encoding='utf-8') as file:
-                self.windows_config = json.load(file)
-        if os.path.isfile('./data/ProjectDirectories.json'):
-            with open('./data/ProjectDirectories.json', mode='r', encoding='utf-8') as file:
-                self.programe_data = json.load(file)
+        try:
+            if os.path.isfile('./data/windows_config.json'):
+                with open('./data/windows_config.json', mode='r', encoding='utf-8') as file:
+                    self.windows_config = json.load(file)
+        except:
+            self.open
+        try:
+            if os.path.isfile('./data/ProjectDirectories.json'):
+                with open('./data/ProjectDirectories.json', mode='r', encoding='utf-8') as file:
+                    self.programe_data = json.load(file)
+        except:
+            self.openError = True
+        self.checkConfig()
         self.updated = False
     # windows_configs.json 파일 체크를 수행하는 메소드
     def startWindows(self):
@@ -25,7 +33,9 @@ class conf:
         df['windows_scale_height'] = 650
         df['language'] = 'ko'
         df['model'] = 'GPT-OSS:20b'
-        df['project directory'] = './ProgrameData'
+        df['treeview_width'] = 80
+        df['treeviwe_height'] = self.windows_config['windows_scale_width'] / 5
+        df['treeview_height'] = self.windows_config['windows_scale_height'] - 50
         with open('./data/windows_config.json', 'w', encoding='utf-8') as file:
             json.dump(df, file)
     # ProjectDirectories.json 파일 체크를 수행하는 메소드
@@ -35,6 +45,15 @@ class conf:
         df['LastOpenDir'] = r'C:\Users'
         with open('./data/ProjectDirectories.json', 'w', encoding='utf-8') as file:
             json.dump(df, file)
+    # jsonfile을 확인하고, 최종적으로 정정하는 메소드
+    def checkConfig(self):
+        if self.openError:
+            self.startWindows()
+            self.programeLoad()
+        if 'treeview_width' not in self.windows_config.keys():
+            self.windows_config['treeview_width'] = self.windows_config['windows_scale_width'] / 5
+        elif 'treeviwe_height' not in self.windows_config.keys():
+            self.windows_config['treeview_height'] = self.windows_config['windows_scale_height'] - 50
     # pos를 업데이트하는 메소드
     def updatePosition(self, x:int, y:int):
         self.windows_config['windows_pos_x'] = x
