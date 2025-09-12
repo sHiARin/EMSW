@@ -4,8 +4,9 @@ from PySide6.QtWidgets import (QMainWindow, QWidget, QFileDialog,
                                QDialog, QInputDialog, QTreeView,
                                QTreeWidgetItem)
 from PySide6.QtGui import (QKeyEvent, QAction, QStandardItemModel,
-                           QStandardItem)
-from PySide6.QtCore import Qt, Signal, QTimer
+                           QStandardItem, QPalette, QColor)
+from PySide6.QtCore import (Qt, Signal, QTimer,
+                            QObject)
 from enum import Enum, unique
 
 from Config.config import conf
@@ -44,10 +45,14 @@ class ProgrameAction(Enum):
     ### 프로그램 동작 변수 관련 액션 시그널 ###
     # 프로젝트 경로가 설정되었습니다.
     SetTheProjectDir = 0x2fff000
+    ### 프로그램 UI 관련 액션 시그널 ###
+    # UI가 업데이트 되었습니다.
+    UpdateUI = 0x3fff001
+    # TreeView가 업데이트 되었습니다.
+    UpdateTreeView = 0x3fff002
 # 메인 매뉴의 레이아웃 사이즈를 관리하기 위한 전용 클래스
 class ProgrameUIData:
     pass
-
 # 프로젝트를 열기 위한 클래스
 class OpenProject(QDialog):
     Project_dir = Signal(str)
@@ -103,7 +108,7 @@ class OpenProject(QDialog):
         QMessageBox.information(self, "취소", '프로젝트 열기를 취소했습니다.', QMessageBox.StandardButton.Ok)
         self.close()
     def closeEvent(self, event):
-        print("Project Opened")
+        print("Project Open window close")
     # okBtnAction을 정의한 메소드 directory를 설정한다. 프로젝트 명이 겹치는 경우, ''을 반환한다. 
     def okBtnAction(self):
         if self.dir == '':
@@ -211,8 +216,8 @@ class CreateProject(QDialog):
 class EMSWTreeView(QWidget):
     def __init__(self, root_dir:str):
         super().__init__()
-        print(root_dir)
         self.blakTr = True
+        self.colorText = '#0fffff'
         if root_dir != '':
             self.root = root_dir
             self.child = os.listdir(root_dir)
@@ -259,7 +264,6 @@ class EMSWTreeView(QWidget):
         self.root = root
         self.child = os.listdir(self.root)
         title = self.root.split('/')[-1]
-        print(title)
         if len(self.child) == 0:
             text, ok = QInputDialog.getText(None, '새 소설의 이름을 지정해주세요.', '소설 이름을 입력하세요.')
             if ok:
@@ -273,21 +277,21 @@ class EMSWTreeView(QWidget):
             else:
                 print('cancel new Novel')
         else:
-            pass
+            print(self.child.__len__())
+    def setColorText(self, color:str):
+        self.colorText = color
     def init_ui(self):
         if not self.blakTr:
             vlayout = QVBoxLayout()
             vlayout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
             new_novel = QPushButton('새 소설')
             self.treeView.setModel(self.model)
-        
             vlayout.addWidget(new_novel)
             vlayout.addWidget(self.treeView)
             self.setLayout(vlayout)
         else:
             vlayout = QVBoxLayout()
-            vlayout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            vlayout.setAlignment(Qt.AlignmentFlag.AlignTop)
             new_novel = QPushButton('새 소설')
             self.treeView.setModel(self.model)
             label = QLabel()
@@ -295,6 +299,10 @@ class EMSWTreeView(QWidget):
             vlayout.addWidget(new_novel)
             vlayout.addWidget(label)
             self.setLayout(vlayout)
+        palette = self.palette()
+        palette.setColor(QPalette.ColorRole.Window, QColor(self.colorText))
+        self.setPalette(palette)
+        self.setAutoFillBackground(True)
 # EMSW 기능을 수행하는 MainUI.
 # EMSW 기능이란 작가가 본인 스스로 데이터 맵을 구축하여 창작에 도움이 될 수 있는 프로젝트이다.
 # 좀 더 목적을 밝히자면, 이전에 쓴 내용을 불러와 참고하거나, 이전에 쓴 글의 내용으로 지금 집필하는 내용의 소설에 도움을 받기 위해 사용하는 프로젝트다.
@@ -302,12 +310,6 @@ class EMSW(QMainWindow):
     def __init__(self, config:conf):
         super().__init__()
         # window의 사이즈를 정의한다.
-        self.windowPosX = config.windows_config['windows_pos_x']
-        self.windowPosY = config.windows_config['windows_pos_y']
-        self.windowSizeWidth = config.windows_config['windows_scale_width']
-        self.windowSizeHeight = config.windows_config['windows_scale_height']
-        self.programeInfo = config.programe_data['LastOpenDir']
-        self.projectList = config.programe_data['ProjectDirs']
         self.config = config
         #windows 프로그램을 시작하며, 기초 데이터를 설정하고, UI를 만든다.
         self.__start__()
@@ -326,52 +328,18 @@ class EMSW(QMainWindow):
     # 프로그램의 포커스를 가졌을 때 가장 먼저 호출되어야만 하는 동작 실행
     def focusInEvent(self):
         self.time.staRT()
-    # 프로그램이 시작되었을때, 프로그램의 설정 정보에 있는 data를 load함, 이때 path가 없을 경우, path를 만들고, 추가 정보를 입력함.
-    def LoadProgrameSetting(self):
-        print(self.programeInfo)
-        self.programeDataFrame = {}
-        if not os.path.exists(self.programeInfo):
-            self.programeDataFrame['ProjectDirs'] = []
-            self.programeDataFrame['LastOpenedProject'] = ''
-            with open(self.programeInfo, 'w', encoding='utf-8') as file:
-                json.dump(self.programeDataFrame, file)
-            pass
-        elif os.path.exists(self.programeInfo):
-            with open(self.programeInfo, 'r', encoding='utf-8') as file:
-                self.programeDataFrame = json.load(file)
-                print(self.programeDataFrame)
-            if 'ProjectDirs' not in self.programeDataFrame.keys():
-                with open(self.programeInfo, 'w', encoding='utf-8') as file:
-                    json.dump(self.programeDataFrame, file)
-            elif 'LastOpenedProject' not in self.programeDataFrame:
-                with open(self.programeInfo, 'w', encoding='utf-8') as file:
-                    json.dump(self.programeDataFrame, file)
-            elif len(self.programeDataFrame['ProjectDirs']) == 0:
-                if len(self.dir) == 0:
-                    print('첫 프로젝트를 열어주세요.')
-                else:
-                    print(self.dir)
-                    if type(self.programeDataFrame['ProjectDirs']) is list:
-                        self.programeDataFrame['ProjectDirs'].append(self.dir)
-                        self.programeDataFrame['LastOpenedProject'] = self.dir
-            elif os.path.exists(self.programeInfo):
-                with open(self.programeInfo, 'r', encoding='utf-8') as file:
-                    self.programeDataFrame = json.load(file)
-                if type(self.programeDataFrame) is dict:
-                    if len(self.programeDataFrame['ProjectDirs']) == 0:
-                        print('첫 프로젝트를 열어주세요.')
-                    elif self.programeDataFrame['LastOpenedProject'] == '':
-                        print('프로젝트를 열어주세요')
-                    else:
-                        self.dir = self.programeDataFrame['LastOpenedProject']
-                pass
-        print(self.programeDataFrame)
     # 가장 먼저 호출되며 UI 객체에서 사용되는 기본 설정을 담당함.
     def __start__(self):
-        print('programe Start')
-        self.dir = ''
-        if self.programeInfo != r'C:\Users':
-            self.LoadProgrameSetting()
+        self.windowPosX = self.config.windows_config['windows_pos_x']
+        self.windowPosY = self.config.windows_config['windows_pos_y']
+        self.windowSizeWidth = self.config.windows_config['windows_scale_width']
+        self.windowSizeHeight = self.config.windows_config['windows_scale_height']
+        self.programeInfo = self.config.programe_data['LastOpenDir']
+        self.projectList = self.config.programe_data['ProjectDirs']
+        if self.programeInfo != '':
+            self.dir = self.programeInfo
+        else:
+            self.dir = ''
         if self.dir != '':
             self.trView = EMSWTreeView(self.dir)
         if self.dir == '':
@@ -381,7 +349,6 @@ class EMSW(QMainWindow):
         self.makeMenu()
         self.setWindowTitle('EMSW')
         self.setGeometry(self.windowPosX, self.windowPosY, self.windowSizeWidth, self.windowSizeHeight)
-        print('success start')
     def Update_windows_position(self):
         if (self.x != self.config.windows_config['windows_pos_x']) or (self.y != self.config.windows_config['windows_pos_y']):
             self.config.updatePosition(self.x, self.y)
@@ -389,31 +356,47 @@ class EMSW(QMainWindow):
         if (self.width != self.config.windows_config['windows_scale_width']) or (self.height != self.config.windows_config['windows_scale_height']):
             self.config.updateScale(self.width, self.height)
     def __setTreeView__(self):
-        pass
+        self.trView.updateSize(self.config.windows_config['treeview_width'], self.config.windows_config['treeview_height'])
     # update에서 가장 빨리 호출되는 메소드.
     # 주로 데이터의 업데이트, 또는 갱신을 담당하는 메소드 또는 함수가 연결된다.
     def __fixed_update__(self):
-        #windows의 창 모양에 대한 메소드는 여기에서 호출
         self.FixedUpdate()
     def FixedUpdate(self):
-        if self.dir == '':
+        if self.config.programe_data['LastOpenDir'] == '' or self.config.programe_data['LastOpenDir'] is None:
             pass
         elif self.ProgrameSignal == ProgrameAction.SetTheProjectDir:
-            self.trView.setRoot(self.dir)
+            self.trView.setRoot(self.config.programe_data['LastOpenDir'])
+            self.ProgrameSignal = ProgrameAction.ProgrameDuring
+        else:
             self.ProgrameSignal = ProgrameAction.ProgrameDuring
     def windowsUpdate(self):
+        if ProgrameAction.UpdateTreeView == self.ProgrameSignal:
+            print(self.dir)
+            self.trView.setRoot(self.dir)
+            self.ProgrameSignal = ProgrameAction.ProgrameDuring
         pos = self.pos()
         scale = self.geometry()
         if ((pos.x() != self.config.windows_config['windows_pos_x']) or (pos.y() != self.config.windows_config['windows_pos_y'])):
             self.config.updatePosition(pos.x(), pos.y())
         if ((scale.width() != self.config.windows_config['windows_scale_width']) or (scale.height() != self.config.windows_config['windows_scale_height'])):
             self.config.updateScale(scale.width(), scale.height())
+        try:
+            if self.trView.geometry().width() != self.config.windows_config['treeview_width'] and self.trView.geometry().height() != self.config.windows_config['treeview_height'] and self.programeInfo == ProgrameAction.ProgrameDuring:
+                self.programeInfo = ProgrameAction.UpdateUI
+        except:
+            pass
     # 주기적으로 업데이트되는 메소드. 또한, initUI를 호출하여 주기적으로 프로그램의 UI를 변경한다.
     def __update__(self):
         #모든 update가 동작하기 전, 반드시 실행해야 하는 동작은 여기에 구현
         self.windowsUpdate()
+        #update가 실행되기 전, 처리해야 할 내용은 여기에 구현한다.
         self.__fixed_update__()
         # __update__에서 처리하는 내용은 여기에 구현한다.
+        if self.ProgrameSignal == ProgrameAction.UpdateUI:
+            self.repaint()
+            print("repaint")
+            self.ProgrameSignal = ProgrameAction.ProgrameDuring
+        # update가 끝난 다음, 구현해야 할 내용은 여기에 구현한다.
         self.__last_update__()
     # 가장 나중에 업데이트되는 메소드. initUI 보다도 나중에 호출된다.
     def __last_update__(self):
@@ -423,8 +406,9 @@ class EMSW(QMainWindow):
         if self.ProgrameSignal == ProgrameAction.OpenProjectSuccess:
             print("작업 폴더 열기가 완료되었습니다.")
             print(f"웹소설 작업 폴더 : {self.dir}")
-            self.LoadProgrameSetting()
-            self.ProgrameSignal = ProgrameAction.SetTheProjectDir
+            if self.programeInfo != self.dir:
+                self.programeInfo = self.dir
+            self.trView.setRoot(self.dir)
         pass
     # Menu를 만드는 메소드
     def makeMenu(self):
@@ -454,7 +438,11 @@ class EMSW(QMainWindow):
             pass
     # direcotry를 받아오는 메소드
     def getProjectDirectory(self, recived_data):
+        print(recived_data)
         self.dir = recived_data
+        self.trView.setRoot(recived_data)
+        self.config.AppenddProjectDir(recived_data)
+        self.ProgrameSignal = ProgrameAction.UpdateTreeView
     # Programe Signal 데이터를 처리하는 메소드
     def getProgrameSignal(self, recived_data):
         self.ProgrameSignal = recived_data
@@ -464,6 +452,12 @@ class EMSW(QMainWindow):
         hLayout = QHBoxLayout()
         if self.trView != None:
             hLayout.addWidget(self.trView)
+        if self.config.windows_config['widget_align'] == 'left':
+            hLayout.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        elif self.config.windows_config['widget_align'] == 'right':
+            hLayout.setAlignment(Qt.AlignmentFlag.AlignRight)
+        elif self.config.windows_config['widget_align'] == 'center':
+            hLayout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.MainBoard.setLayout(hLayout)
         self.setCentralWidget(self.MainBoard)
         self.show()

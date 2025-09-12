@@ -5,3 +5,8 @@ EMSW_UI에 Todo 작업 처리.
 EMSW_UI에 Todo 작업 내용 처리. Original#001-1로 명명
 C 모듈은 구현된 부분을 손봐서 별도 모듈을 만드는 것을 추천.
 내일은 EMSW_UI의 TreeView를 완성시키고, 기존의 LinkedList의 appendFront의 오류를 고칠 것. 중간에 null pointer exception이 발생함.
+
+2025-09-12
+EMSW_UI에 TreeView 완성. Original#002로 명명
+C 모듈의 정정은 내일로 방향성을 바꿈.
+TextInput_Rendering 구현 준비 (Pyside6의 GUI를 활용할 것.)
