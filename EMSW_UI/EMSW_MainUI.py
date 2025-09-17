@@ -2,11 +2,13 @@ from PySide6.QtWidgets import (QMainWindow, QWidget, QFileDialog,
                                QVBoxLayout, QHBoxLayout, QPushButton,
                                QLabel, QLineEdit, QMessageBox,
                                QDialog, QInputDialog, QTreeView,
-                               QTreeWidgetItem)
+                               QTreeWidgetItem, QAbstractItemView)
 from PySide6.QtGui import (QKeyEvent, QAction, QStandardItemModel,
-                           QStandardItem, QPalette, QColor)
+                           QStandardItem, QPalette, QColor,
+                           QPainter, QFont, QPen,
+                           QTextLayout, QTextOption)
 from PySide6.QtCore import (Qt, Signal, QTimer,
-                            QObject)
+                            QPointF, QModelIndex)
 from enum import Enum, unique
 
 from Config.config import conf
@@ -42,6 +44,8 @@ class ProgrameAction(Enum):
     OpenProjectSuccess = 0x1fff006
     # 프로젝트 여는 것에 실패했습니다.
     CannotOpenProject = 0x1fff007
+    # 파일을 생성했습니다.
+    CreateFiles = 0x1fff008
     ### 프로그램 동작 변수 관련 액션 시그널 ###
     # 프로젝트 경로가 설정되었습니다.
     SetTheProjectDir = 0x2fff000
@@ -50,6 +54,8 @@ class ProgrameAction(Enum):
     UpdateUI = 0x3fff001
     # TreeView가 업데이트 되었습니다.
     UpdateTreeView = 0x3fff002
+    # TreeView에서 선택이 변경되었습니다.
+    SelectTreeView = 0x3fff003
 # 메인 매뉴의 레이아웃 사이즈를 관리하기 위한 전용 클래스
 class ProgrameUIData:
     pass
@@ -127,7 +133,6 @@ class CreateProject(QDialog):
     Action_Type = Signal(ProgrameAction)
     def __init__(self, x:int, y:int, width:int, height:int):
         super().__init__()
-        self.Action_Type = ProgrameAction.SubWindowsOpened
         self.PosX = x
         self.PosY = y
         self.WidthSize = width
@@ -214,24 +219,30 @@ class CreateProject(QDialog):
 # treeView는 QWidget을 받아서 처리한다.
 # EMSWTreeView는 QWidget에서 관리하며, TreeView는 상속받은 별도의 class로 처리한다.
 class EMSWTreeView(QWidget):
+    Action_Type = Signal(ProgrameAction)
+    DocumentDir = Signal(str)
     def __init__(self, root_dir:str):
         super().__init__()
         self.blakTr = True
         self.colorText = '#0fffff'
         if root_dir != '':
+            self.document_dir = ''
             self.root = root_dir
             self.child = os.listdir(root_dir)
             self.treeView = QTreeView(self)
             self.model = QStandardItemModel()
             self.blakTr = False
             self.__start__()
+            self.treeView.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+            self.treeView
             self.init_ui()
         else:
             self.root = 'blank'
             self.child = []
             self.treeView = QTreeView(self)
             self.model = QStandardItemModel()
-            self.__start__
+            self.__start__()
+            self.treeView.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
             self.init_ui()
     def __start__(self):
         self.novels = []
@@ -240,11 +251,23 @@ class EMSWTreeView(QWidget):
             self.makeTree()
     def getChild(self, dirs:str):
         print(os.listdir(dirs))
+    def makeChildTree(self, dir:str, parents:QStandardItem):
+        for file in os.listdir(dir):
+            print(file)
+            if os.path.isdir(f"{dir}/{file}"):
+                continue
+            elif os.path.isfile(f"{dir}/{file}"):
+                child = file.split('.')[0]
+                child_Item = QStandardItem(child)
+                parents.appendRow(child_Item)
+        return parents
     def makeTree(self):
         self.root_tree = QStandardItem(self.root_name)
         for t in self.child:
             if os.path.isdir(f"{self.root}/{t}"):
-                self.novels.append(QStandardItem(t))
+                t_item = QStandardItem(t)
+                t_item = self.makeChildTree(f"{self.root}/{t}", t_item)
+                self.novels.append(t_item)
         for n in self.novels:
             self.root_tree.appendRow([n])
         self.updateModels()
@@ -263,9 +286,36 @@ class EMSWTreeView(QWidget):
     def setRoot(self, root:str):
         self.root = root
         self.child = os.listdir(self.root)
-        title = self.root.split('/')[-1]
         if len(self.child) == 0:
-            text, ok = QInputDialog.getText(None, '새 소설의 이름을 지정해주세요.', '소설 이름을 입력하세요.')
+            self.makeGroup()
+        else:
+            print(self.child.__len__())
+    def selectGroupDir(self, index:QModelIndex, previous_index:QModelIndex):
+        self.DocumentDir.emit(f"{self.root}/{index.data()}")
+        self.document_dir = f"{self.root}/{index.data()}"
+        self.Action_Type.emit(ProgrameAction.SelectTreeView)
+    def makeGroup(self):
+        print(self.root)
+        title = self.root.split('/')[-1]
+        path = f"{self.root}/{title}.json"
+        print(os.path.isfile(path))
+        text, ok = QInputDialog.getText(None, '새 소설의 이름을 지정해주세요.', '소설 이름을 입력하세요.')
+        print(os.listdir(self.root))
+        if os.path.isfile(f"{self.root}/{title}.json"):
+            if ok:
+                with open(path, 'r', encoding='utf-8-sig') as file:
+                    js_data = json.load(file)
+                if text in js_data['title']:
+                    QMessageBox(self, "알림", "프로젝트 이름이 존재합니다.", QMessageBox.StandardButton.OK|QMessageBox.StandardButton.Cancel, QMessageBox.StandardButton.Cancel)
+                js_data['title'] = list(js_data['title']).append(text)
+                with open(path, 'w', encoding='utf-8') as file:
+                    json.dump(js_data, file)
+                print(self.root + f'/{text}')
+                os.mkdir(self.root + f'/{text}')
+                self.child = os.listdir(self.root)
+            else:
+                print('cancel new Novel')
+        else:
             if ok:
                 js_data = {}
                 js_data['title'] = text
@@ -276,33 +326,70 @@ class EMSWTreeView(QWidget):
                 self.child = os.listdir(self.root)
             else:
                 print('cancel new Novel')
-        else:
-            print(self.child.__len__())
     def setColorText(self, color:str):
         self.colorText = color
+    def newProject(self):
+        crepro = CreateProject(self.x(), self.y(), 580, 120)
+        if crepro.exec():
+            pass
+        self.Action_Type = ProgrameAction.ProjectCreateSuccess
+    def newPage(self):
+        text, ok = QInputDialog.getText(None, '새 페이지의 이름을 입력해 주세요', '새 페이지')
+        if ok:
+            if 0 < self.document_dir.__len__() and not (text in os.listdir(f'{self.root}/{self.document_dir}')):
+                dir = f'{self.root}/{self.document_dir}'
+                open(f'{dir}/{text}', 'w', encoding='utf-8').writelines('')
+            elif text in os.listdir(f'{self.root}/{self.document_dir}'):
+                QMessageBox.Information(self, '경고', '파일 이름이 중복입니다.', QMessageBox.StandardButton.Ok)
+            else:
+                QMessageBox.information(self, '취소', '페이지 생성을 취소하였습니다.', QMessageBox.StandardButton.Ok)
     def init_ui(self):
         if not self.blakTr:
             vlayout = QVBoxLayout()
             vlayout.setAlignment(Qt.AlignmentFlag.AlignCenter)
             new_novel = QPushButton('새 소설')
+            new_novel.clicked.connect(self.makeGroup)
+            new_page = QPushButton('새 페이지')
+            menuView = QHBoxLayout()
+            menuView.addWidget(new_novel)
+            menuView.addWidget(new_page)
             self.treeView.setModel(self.model)
-            vlayout.addWidget(new_novel)
+            selection_model = self.treeView.selectionModel()
+            selection_model.currentChanged.connect(self.selectGroupDir)
+            vlayout.addLayout(menuView)
             vlayout.addWidget(self.treeView)
             self.setLayout(vlayout)
         else:
             vlayout = QVBoxLayout()
             vlayout.setAlignment(Qt.AlignmentFlag.AlignTop)
-            new_novel = QPushButton('새 소설')
-            self.treeView.setModel(self.model)
-            label = QLabel()
-            label.setText('빈 소설')
+            new_novel = QPushButton('새 프로젝트')
+            new_novel.clicked.connect(self.newProject)
             vlayout.addWidget(new_novel)
-            vlayout.addWidget(label)
             self.setLayout(vlayout)
         palette = self.palette()
         palette.setColor(QPalette.ColorRole.Window, QColor(self.colorText))
         self.setPalette(palette)
         self.setAutoFillBackground(True)
+# Text를 입력받았을때, Text를 Drawing하는 클래스
+# TextFormList를 통해 Text의 모양을 계산하고, 배치를 계산한 뒤, TextList를 불러와 드로잉한다.
+# TextList는 DataTools의 StackList로 구현하고, TextFormList는 PairList로 구현한다.
+# PairList는 텍스트의 위치값과 고유한 속성을 담고 있는 데이터로 Sentence로 구분되어 프로그램이 인식하기 쉽도록 도와주는
+class TextCanvas(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.font = QFont('Malgun Gothic', 16)
+    def PaintEvent(self, e):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.TextAntialiasing, True)
+        p.setFont(self.font)
+
+        opt = QTextOption()
+        opt.setWarpMode(QTextOption.WrapMode.WordWrap)
+        opt.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
+        
+        layout = QTextLayout()
+        
+
 # EMSW 기능을 수행하는 MainUI.
 # EMSW 기능이란 작가가 본인 스스로 데이터 맵을 구축하여 창작에 도움이 될 수 있는 프로젝트이다.
 # 좀 더 목적을 밝히자면, 이전에 쓴 내용을 불러와 참고하거나, 이전에 쓴 글의 내용으로 지금 집필하는 내용의 소설에 도움을 받기 위해 사용하는 프로젝트다.
@@ -327,6 +414,7 @@ class EMSW(QMainWindow):
         print('main Windows update timer stop')
     # 프로그램의 포커스를 가졌을 때 가장 먼저 호출되어야만 하는 동작 실행
     def focusInEvent(self):
+        print('포커스를 가졌습니다.')
         self.time.staRT()
     # 가장 먼저 호출되며 UI 객체에서 사용되는 기본 설정을 담당함.
     def __start__(self):
@@ -336,7 +424,9 @@ class EMSW(QMainWindow):
         self.windowSizeHeight = self.config.windows_config['windows_scale_height']
         self.programeInfo = self.config.programe_data['LastOpenDir']
         self.projectList = self.config.programe_data['ProjectDirs']
-        if self.programeInfo != '':
+        if not os.path.isdir(self.programeInfo):
+            self.dir = ''
+        elif self.programeInfo != '':
             self.dir = self.programeInfo
         else:
             self.dir = ''
@@ -345,10 +435,10 @@ class EMSW(QMainWindow):
         if self.dir == '':
             self.trView = EMSWTreeView('')
         self.ProgrameSignal = ProgrameAction.ProgrameStart
-        self.MainBoard = QWidget()
         self.makeMenu()
         self.setWindowTitle('EMSW')
         self.setGeometry(self.windowPosX, self.windowPosY, self.windowSizeWidth, self.windowSizeHeight)
+        self.targetDir = ''
     def Update_windows_position(self):
         if (self.x != self.config.windows_config['windows_pos_x']) or (self.y != self.config.windows_config['windows_pos_y']):
             self.config.updatePosition(self.x, self.y)
@@ -357,9 +447,16 @@ class EMSW(QMainWindow):
             self.config.updateScale(self.width, self.height)
     def __setTreeView__(self):
         self.trView.updateSize(self.config.windows_config['treeview_width'], self.config.windows_config['treeview_height'])
+    # TreeView 변동 사항을 검사하는 Trigger
+    def setDocument(self, recived):
+        self.targetDir = recived
+    def treeViewTrigger(self):
+        if self.trView:
+            self.trView.Action_Type.connect(self.getProgrameSignal)
     # update에서 가장 빨리 호출되는 메소드.
     # 주로 데이터의 업데이트, 또는 갱신을 담당하는 메소드 또는 함수가 연결된다.
     def __fixed_update__(self):
+        self.treeViewTrigger()
         self.FixedUpdate()
     def FixedUpdate(self):
         if self.config.programe_data['LastOpenDir'] == '' or self.config.programe_data['LastOpenDir'] is None:
@@ -367,8 +464,12 @@ class EMSW(QMainWindow):
         elif self.ProgrameSignal == ProgrameAction.SetTheProjectDir:
             self.trView.setRoot(self.config.programe_data['LastOpenDir'])
             self.ProgrameSignal = ProgrameAction.ProgrameDuring
+        elif self.ProgrameSignal == ProgrameAction.SelectTreeView:
+            self.trView.DocumentDir.connect(self.setDocument)
+            self.ProgrameSignal = ProgrameAction.ProgrameDuring
         else:
             self.ProgrameSignal = ProgrameAction.ProgrameDuring
+    # fixedUpdate 호출 이전에 반드시 먼저 호출되어야 하는 설정 변수들과 Windows 환경 변수들
     def windowsUpdate(self):
         if ProgrameAction.UpdateTreeView == self.ProgrameSignal:
             print(self.dir)
@@ -385,6 +486,7 @@ class EMSW(QMainWindow):
                 self.programeInfo = ProgrameAction.UpdateUI
         except:
             pass
+        self.trView.Action_Type.connect(self.getProgrameSignal)
     # 주기적으로 업데이트되는 메소드. 또한, initUI를 호출하여 주기적으로 프로그램의 UI를 변경한다.
     def __update__(self):
         #모든 update가 동작하기 전, 반드시 실행해야 하는 동작은 여기에 구현
@@ -420,8 +522,11 @@ class EMSW(QMainWindow):
         open_menu.triggered.connect(self.openProject)
         project_menu = QAction('새 프로젝트', self)
         project_menu.triggered.connect(self.newProjectAction)
+        createDocuments = QAction('새 문서', self)
+        createDocuments.triggered.connect(self.newDocumentsAction)
         menu.addAction(open_menu)
         menu.addAction(project_menu)
+        menu.addAction(createDocuments)
     # 프로젝트를 여는 매뉴를 호출하는 메소드
     def openProject(self):
         print('작업폴더 열기 작업이 수행되었습니다.')
@@ -432,10 +537,30 @@ class EMSW(QMainWindow):
         print(f'작업폴더 열기 작업이 완료되었습니다. : {self.dir}')
     # 프로젝트를 여는 메뉴를 호출하는 메소드
     def newProjectAction(self):
-        print('작업폴더 추가 작업이 수행되었습니다.')
+        print('프로젝트 추가 작업이 수행되었습니다.')
         crepro = CreateProject(self.x(), self.y(), 580, 120)
-        if crepro.exec():
-            pass
+        crepro.Project_dir.connect(self.getProjectDirectory)
+        crepro.Action_Type.connect(self.getProgrameSignal)
+        crepro.exec()
+        print(f'프로젝트 추가 작업이 완료되었습니다. : {self.dir}')
+    def newDocumentsAction(self):
+        print('파일 추가 작업이 수행되었습니다.')
+        if self.targetDir == '':
+            QMessageBox.information(self, '취소', '올바르지 않은 선택이 발생했습니다.', QMessageBox.StandardButton.Ok)
+        else:
+            text, ok = QInputDialog.getText(None, '새 페이지의 이름을 입력해 주세요', '새 페이지')
+            if ok:
+                dir = f'{self.targetDir}/{text}.txt'
+                print(self.targetDir)
+                if os.path.isdir(self.targetDir) and not f"{text}.txt" in os.listdir(self.targetDir):
+                    open(dir, 'w', encoding='utf-8').writelines('')
+                elif os.path.isfile(f"{self.targetDir}.txt"):
+                    t = f"{''.join(self.targetDir.split('/')[0::-1])}/{text}.txt"
+                    open(t, 'w', encoding='utf-8').writelines('')
+                elif text in os.listdir(self.targetDir):
+                    QMessageBox.Information(self, '경고', '페이지 이름이 중복입니다.', QMessageBox.StandardButton.Ok)
+            else:
+                QMessageBox.information(self, '취소', '페이지 생성을 취소하셨습니다.', QMessageBox.StandardButton.Ok)
     # direcotry를 받아오는 메소드
     def getProjectDirectory(self, recived_data):
         print(recived_data)
@@ -458,8 +583,9 @@ class EMSW(QMainWindow):
             hLayout.setAlignment(Qt.AlignmentFlag.AlignRight)
         elif self.config.windows_config['widget_align'] == 'center':
             hLayout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.MainBoard.setLayout(hLayout)
-        self.setCentralWidget(self.MainBoard)
+        mainboard = QWidget()
+        mainboard.setLayout(hLayout)
+        self.setCentralWidget(mainboard)
         self.show()
     # 창이 닫힐때 실행되는 동작을 정의한다.
     # 프로젝트가 닫히는 절차를 정의한다.
