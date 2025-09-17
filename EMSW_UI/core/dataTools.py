@@ -74,18 +74,18 @@ class CharStack(NativeTools):
                 text.append(tmp)
         text.reverse()
         return ''.join(text)
-    # stack 내의 문서 내용을 반환한다.
+    # stack 내의 문서 내용을 입력된 부분부터 반환한다.
     # 단, stack에 노드는 삭제하지 않는다.
     def __str__(self):
         if self.stack == None:
             return None
         txt = [t for t in self.__iter__()]
-        return ''.join(txt)
-    # stack 내의 문서 내용을 거꾸로 반환한다.
-    # 단, stack의 노드는 삭제하지 않는다.
-    def __to_reverse_str__(self):
-        txt = [t for t in self.__iter__()]
         txt.reverse()
+        return ''.join(txt)
+    # stack 내의 문서 내용을 반환한다.
+    # 단, stack의 노드는 삭제하지 않는다.
+    def __reverse_str__(self):
+        txt = [t for t in self.__iter__()]
         return ''.join(txt)
     # iter로 반환한다. (pop과는 다름)
     def __iter__(self):
@@ -162,6 +162,12 @@ class StackList(NativeTools):
         super().__init__()
         self.dll.makeList.restype = POINTER(CList)
         self.list = self.dll.makeList()
+    def __to__(self):
+        if self.__len__ == 0:
+            return None
+        s = CharStack()
+        s.setStack(self.list.contents.data)
+        return s
     # List에 Stack 데이터를 추가한다.
     def append(self, data:CharStack):
         self.dll.appendNode.argtypes = [self.listPtr, POINTER(Stack)]
@@ -268,9 +274,9 @@ class StackList(NativeTools):
         self.dll.getData.restype = POINTER(Stack)
         self.dll.findDataFromPosition.argtypes = [POINTER(CList), POINTER(CList), c_int]
         self.dll.findDataFromPosition.restype = POINTER(Stack)
-        if self.len() < pos:
+        if self.__len__() < pos:
             raise ('Error! over range exception!')
-        elif self.len() < 1:
+        elif self.__len__() < 1:
             raise ('Error! must able to natural numbers')
         if pos == 1:
             return stack_str(self.dll.getData(self.list))
