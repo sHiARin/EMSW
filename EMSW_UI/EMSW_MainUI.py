@@ -58,9 +58,42 @@ class ProgrameAction(Enum):
     SelectTreeView = 0x3fff003
     # TreeView의 작업이 완료되었습니다.
     FinishedTreeViewWork = 0x3fff004
-# 메인 매뉴의 레이아웃 사이즈를 관리하기 위한 전용 클래스
-class ProgrameUIData:
-    pass
+    # TreeView의 갱신을 실패했습니다.
+    FailedTreeViewUpdate = 0x3fff005
+# 디버그를 위해 Signal의 종류를 체크하는 함수
+def CheckProgrameSignal(signal:int):
+    if signal == ProgrameAction.ProgrameStart:
+        print("프로그램이 시작되었습니다.")
+    elif signal == ProgrameAction.ProgrameDuring:
+        print("프로그램이 실행중입니다..")
+    elif signal == ProgrameAction.ProgrameOut:
+        print("포커스를 벗어났습니다.")
+    elif signal == ProgrameAction.ProgrameIn:
+        print("포커스를 가졌습니다.")
+    elif signal == ProgrameAction.SubWindowsOpened:
+        print("포커스를 가졌습니다.")
+    elif signal == ProgrameAction.ProjectCreateFailed:
+        print("프로젝트 생성에 실패했습니다.")
+    elif signal == ProgrameAction.ProjectCreateSuccess:
+        print("프로젝트 생성에 성공했습니다.")
+    elif signal == ProgrameAction.CancleProjectCreate:
+        print("프로젝트 생성을 취소했습니다.")
+    elif signal == ProgrameAction.OpenProjectSuccess:
+        print("프로젝트 열기를 성공했습니다.")
+    elif signal == ProgrameAction.CannotOpenProject:
+        print("프로젝트 열기를 실패했습니다.")
+    elif signal == ProgrameAction.CreateFiles:
+        print("파일 생성을 성공했습니다.")
+    elif signal == ProgrameAction.SetTheProjectDir:
+        print("프로젝트 경로가 설정되었습니다.")
+    elif signal == ProgrameAction.UpdateUI:
+        print("UI가 업데이트되었습니다.")
+    elif signal == ProgrameAction.UpdateTreeView:
+        print("TreeView가 업데이트되었습니다.")
+    elif signal == ProgrameAction.SelectTreeView:
+        print("TreeView 선택 항목이 변경되었습니다.")
+    elif signal == ProgrameAction.FinishedTreeViewWork:
+        print("TreeView의 작업이 완료되었습니다.")
 # 프로젝트를 열기 위한 클래스
 class OpenProject(QDialog):
     Project_dir = Signal(str)
@@ -294,20 +327,25 @@ class EMSWTreeView(QWidget):
         else:
             print(self.child.__len__())
     def selectGroupDir(self, index:QModelIndex, previous_index:QModelIndex):
-        self.DocumentDir.emit(f"{self.root}/{index.data()}")
-        self.document_dir = f"{self.root}/{index.data()}"
+        if index.data() in self.root:
+            self.DocumentDir.emit(self.root)
+            self.document_dir = self.root
+        else:
+            self.DocumentDir.emit(f"{self.root}/{index.data()}")
+            self.document_dir = f"{self.root}/{index.data()}"
+        #print(self.document_dir)
         self.Action_Type.emit(ProgrameAction.SelectTreeView)
     def makeGroup(self):
         print(self.root)
         title = self.root.split('/')[-1]
         path = f"{self.root}/{title}.json"
-        print(os.path.isfile(path))
         text, ok = QInputDialog.getText(None, '새 소설의 이름을 지정해주세요.', '소설 이름을 입력하세요.')
         print(os.listdir(self.root))
         if os.path.isfile(f"{self.root}/{title}.json"):
             if ok:
                 with open(path, 'r', encoding='utf-8-sig') as file:
                     js_data = json.load(file)
+                print(js_data)
                 if text in js_data['title']:
                     QMessageBox(self, "알림", "프로젝트 이름이 존재합니다.", QMessageBox.StandardButton.OK|QMessageBox.StandardButton.Cancel, QMessageBox.StandardButton.Cancel)
                 js_data['title'] = list(js_data['title']).append(text)
@@ -335,7 +373,7 @@ class EMSWTreeView(QWidget):
         crepro = CreateProject(self.x(), self.y(), 580, 120)
         if crepro.exec():
             pass
-        self.Action_Type = ProgrameAction.ProjectCreateSuccess
+        self.Action_Type.emit(ProgrameAction.ProjectCreateSuccess)
     def newPage(self):
         text, ok = QInputDialog.getText(None, '새 페이지의 이름을 입력해 주세요', '새 페이지')
         if ok:
@@ -347,9 +385,24 @@ class EMSWTreeView(QWidget):
             else:
                 QMessageBox.information(self, '취소', '페이지 생성을 취소하였습니다.', QMessageBox.StandardButton.Ok)
     def UpdateTree(self):
-        print(self.document_dir)
-        print(os.listdir(self.document_dir))
-        pass
+        try:
+            ch = [t.split('.')[0] for t in os.listdir(self.document_dir)]
+            model = self.treeView.model()
+            if model is None:
+                return None
+            matching_items = self.model.findItems(self.document_dir.split('/')[-1], Qt.MatchFlag.MatchRecursive, 0)
+            if matching_items:
+                parent_item = matching_items[0]
+                for t in ch:
+                    if t in matching_items:
+                        continue
+                    else:
+                        new_item = QStandardItem(t)
+                        parent_item.appendRow(new_item)
+            else:
+                self.Action_Type.connect(ProgrameAction.FailedTreeViewUpdate)
+        except FileNotFoundError:
+            pass
     def init_ui(self):
         if not self.blakTr:
             vlayout = QVBoxLayout()
@@ -377,7 +430,7 @@ class EMSWTreeView(QWidget):
         palette.setColor(QPalette.ColorRole.Window, QColor(self.colorText))
         self.setPalette(palette)
         self.setAutoFillBackground(True)
-        self.Action_Type = ProgrameAction.FinishedTreeViewWork
+        self.Action_Type.emit(ProgrameAction.FinishedTreeViewWork)
 # Text를 입력받았을때, Text를 Drawing하는 클래스
 # TextFormList를 통해 Text의 모양을 계산하고, 배치를 계산한 뒤, TextList를 불러와 드로잉한다.
 # TextList는 DataTools의 StackList로 구현하고, TextFormList는 PairList로 구현한다.
@@ -458,34 +511,34 @@ class EMSW(QMainWindow):
     # TreeView 변동 사항을 검사하는 Trigger
     def setDocument(self, recived):
         self.targetDir = recived
-    def treeViewTrigger(self):
+    # TreeView를 감시하는 매소드
+    def ListenTreeView(self):
         if self.trView:
             self.trView.Action_Type.connect(self.getProgrameSignal)
+            if self.ProgrameSignal == ProgrameAction.SelectTreeView:
+                self.trView.DocumentDir.connect(self.setDocument)
+                self.ProgrameSignal = ProgrameAction.ProgrameDuring
+            elif self.ProgrameSignal == ProgrameAction.UpdateTreeView:
+                self.trView.UpdateTree()
+                self.ProgrameSignal = ProgrameAction.ProgrameDuring
+            elif self.ProgrameSignal == ProgrameAction.FinishedTreeViewWork:
+                self.ProgrameSignal = ProgrameAction.ProgrameDuring
     # update에서 가장 빨리 호출되는 메소드.
     # 주로 데이터의 업데이트, 또는 갱신을 담당하는 메소드 또는 함수가 연결된다.
     def __fixed_update__(self):
-        self.treeViewTrigger()
         self.FixedUpdate()
     def FixedUpdate(self):
+        self.ListenTreeView()
         if self.config.programe_data['LastOpenDir'] == '' or self.config.programe_data['LastOpenDir'] is None:
             pass
         elif self.ProgrameSignal == ProgrameAction.SetTheProjectDir:
             self.trView.setRoot(self.config.programe_data['LastOpenDir'])
             self.ProgrameSignal = ProgrameAction.ProgrameDuring
-        elif self.ProgrameSignal == ProgrameAction.SelectTreeView:
-            self.trView.DocumentDir.connect(self.setDocument)
-            self.ProgrameSignal = ProgrameAction.ProgrameDuring
         else:
             self.ProgrameSignal = ProgrameAction.ProgrameDuring
     # fixedUpdate 호출 이전에 반드시 먼저 호출되어야 하는 설정 변수들과 Windows 환경 변수들
-    # 프로그램 설정 관련으로, 업데이트되는 UI의 정보도 여기서 처리한다.
+    # 프로그램 설정 관련
     def windowsUpdate(self):
-        print(self.ProgrameSignal == ProgrameAction.UpdateTreeView)
-        if self.ProgrameSignal == ProgrameAction.UpdateTreeView:
-            self.trView.UpdateTree()
-            self.ProgrameSignal = ProgrameAction.ProgrameDuring
-        if self.ProgrameSignal == ProgrameAction.FinishedTreeViewWork:
-            self.ProgrameSignal = ProgrameAction.ProgrameDuring
         pos = self.pos()
         scale = self.geometry()
         if ((pos.x() != self.config.windows_config['windows_pos_x']) or (pos.y() != self.config.windows_config['windows_pos_y'])):
@@ -497,7 +550,6 @@ class EMSW(QMainWindow):
                 self.programeInfo = ProgrameAction.UpdateUI
         except:
             pass
-        self.trView.Action_Type.connect(self.getProgrameSignal)
     # 주기적으로 업데이트되는 메소드. 또한, initUI를 호출하여 주기적으로 프로그램의 UI를 변경한다.
     def __update__(self):
         #모든 update가 동작하기 전, 반드시 실행해야 하는 동작은 여기에 구현
@@ -511,7 +563,7 @@ class EMSW(QMainWindow):
             self.ProgrameSignal = ProgrameAction.ProgrameDuring
         # update가 끝난 다음, 구현해야 할 내용은 여기에 구현한다.
         self.__last_update__()
-    # 가장 나중에 업데이트되는 메소드. initUI 보다도 나중에 호출된다.
+    # 가장 나중에 업데이트되는 메소드. 주로 후처리 Signal을 처리한다.
     def __last_update__(self):
         self.LastUpdate()
     # 가장 나중에 업데이트 되는 것. 일반적으로 데이터를 검증하는 작업을 처리한다.
