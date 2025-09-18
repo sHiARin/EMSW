@@ -56,6 +56,8 @@ class ProgrameAction(Enum):
     UpdateTreeView = 0x3fff002
     # TreeView에서 선택이 변경되었습니다.
     SelectTreeView = 0x3fff003
+    # TreeView의 작업이 완료되었습니다.
+    FinishedTreeViewWork = 0x3fff004
 # 메인 매뉴의 레이아웃 사이즈를 관리하기 위한 전용 클래스
 class ProgrameUIData:
     pass
@@ -375,6 +377,7 @@ class EMSWTreeView(QWidget):
         palette.setColor(QPalette.ColorRole.Window, QColor(self.colorText))
         self.setPalette(palette)
         self.setAutoFillBackground(True)
+        self.Action_Type = ProgrameAction.FinishedTreeViewWork
 # Text를 입력받았을때, Text를 Drawing하는 클래스
 # TextFormList를 통해 Text의 모양을 계산하고, 배치를 계산한 뒤, TextList를 불러와 드로잉한다.
 # TextList는 DataTools의 StackList로 구현하고, TextFormList는 PairList로 구현한다.
@@ -480,6 +483,8 @@ class EMSW(QMainWindow):
         print(self.ProgrameSignal == ProgrameAction.UpdateTreeView)
         if self.ProgrameSignal == ProgrameAction.UpdateTreeView:
             self.trView.UpdateTree()
+            self.ProgrameSignal = ProgrameAction.ProgrameDuring
+        if self.ProgrameSignal == ProgrameAction.FinishedTreeViewWork:
             self.ProgrameSignal = ProgrameAction.ProgrameDuring
         pos = self.pos()
         scale = self.geometry()
