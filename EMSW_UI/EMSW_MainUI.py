@@ -268,6 +268,7 @@ class EMSWTreeView(QWidget):
                 t_item = QStandardItem(t)
                 t_item = self.makeChildTree(f"{self.root}/{t}", t_item)
                 self.novels.append(t_item)
+        print(self.novels)
         for n in self.novels:
             self.root_tree.appendRow([n])
         self.updateModels()
@@ -343,6 +344,10 @@ class EMSWTreeView(QWidget):
                 QMessageBox.Information(self, '경고', '파일 이름이 중복입니다.', QMessageBox.StandardButton.Ok)
             else:
                 QMessageBox.information(self, '취소', '페이지 생성을 취소하였습니다.', QMessageBox.StandardButton.Ok)
+    def UpdateTree(self):
+        print(self.document_dir)
+        print(os.listdir(self.document_dir))
+        pass
     def init_ui(self):
         if not self.blakTr:
             vlayout = QVBoxLayout()
@@ -470,10 +475,11 @@ class EMSW(QMainWindow):
         else:
             self.ProgrameSignal = ProgrameAction.ProgrameDuring
     # fixedUpdate 호출 이전에 반드시 먼저 호출되어야 하는 설정 변수들과 Windows 환경 변수들
+    # 프로그램 설정 관련으로, 업데이트되는 UI의 정보도 여기서 처리한다.
     def windowsUpdate(self):
-        if ProgrameAction.UpdateTreeView == self.ProgrameSignal:
-            print(self.dir)
-            self.trView.setRoot(self.dir)
+        print(self.ProgrameSignal == ProgrameAction.UpdateTreeView)
+        if self.ProgrameSignal == ProgrameAction.UpdateTreeView:
+            self.trView.UpdateTree()
             self.ProgrameSignal = ProgrameAction.ProgrameDuring
         pos = self.pos()
         scale = self.geometry()
@@ -503,7 +509,7 @@ class EMSW(QMainWindow):
     # 가장 나중에 업데이트되는 메소드. initUI 보다도 나중에 호출된다.
     def __last_update__(self):
         self.LastUpdate()
-    # 가장 나중에 
+    # 가장 나중에 업데이트 되는 것. 일반적으로 데이터를 검증하는 작업을 처리한다.
     def LastUpdate(self):
         if self.ProgrameSignal == ProgrameAction.OpenProjectSuccess:
             print("작업 폴더 열기가 완료되었습니다.")
@@ -511,7 +517,6 @@ class EMSW(QMainWindow):
             if self.programeInfo != self.dir:
                 self.programeInfo = self.dir
             self.trView.setRoot(self.dir)
-        pass
     # Menu를 만드는 메소드
     def makeMenu(self):
         menu = self.menuBar()
@@ -524,6 +529,7 @@ class EMSW(QMainWindow):
         project_menu.triggered.connect(self.newProjectAction)
         createDocuments = QAction('새 문서', self)
         createDocuments.triggered.connect(self.newDocumentsAction)
+        self.ProgrameSignal = ProgrameAction.UpdateTreeView
         menu.addAction(open_menu)
         menu.addAction(project_menu)
         menu.addAction(createDocuments)
@@ -561,6 +567,7 @@ class EMSW(QMainWindow):
                     QMessageBox.Information(self, '경고', '페이지 이름이 중복입니다.', QMessageBox.StandardButton.Ok)
             else:
                 QMessageBox.information(self, '취소', '페이지 생성을 취소하셨습니다.', QMessageBox.StandardButton.Ok)
+        self.ProgrameSignal = ProgrameAction.UpdateTreeView
     # direcotry를 받아오는 메소드
     def getProjectDirectory(self, recived_data):
         print(recived_data)
