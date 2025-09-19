@@ -77,6 +77,8 @@ class conf:
         if dir != self.programe_data['LastOpenDir']:
             self.programe_data['LastOpenDir'] = dir
         self.updated = True
+    def getPosition(self):
+        return self.windows_config['windows_pos_x'], self.windows_config['windows_pos_y']
     def __del__(self):
         print(self.programe_data.values())
         if self.updated:

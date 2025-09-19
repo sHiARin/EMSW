@@ -10,6 +10,7 @@ from PySide6.QtGui import (QKeyEvent, QAction, QStandardItemModel,
 from PySide6.QtCore import (Qt, Signal, QTimer,
                             QPointF, QModelIndex)
 from enum import Enum, unique
+import hashlib
 
 from Config.config import conf
 
@@ -94,6 +95,80 @@ def CheckProgrameSignal(signal:int):
         print("TreeView 선택 항목이 변경되었습니다.")
     elif signal == ProgrameAction.FinishedTreeViewWork:
         print("TreeView의 작업이 완료되었습니다.")
+# ProgrameUIData를 관리하기 위한 클래스
+# programeUIData는 기본적으로 열린 Project의 설정창을 참고하게 되므로, ProjectDir이 설정이 되어야 한다.
+class ProgrameWindowData:
+    def __init__(self, ProjectDir:str):
+        self.ProjectDir = ProjectDir
+        self.data = {}
+        with open(f"{self.ProjectDir}/programeWindows.json", mode='r', encoding='utf-8') as file:
+            self.data = json.load(file)
+        keys = ['WindowCode', 'editWindowsXPos', 'eidtWindowsYPos', 'editWindowsWidth', 'editWindowsHeight', 'OpenedWindowsCode']
+        for k in keys:
+            if k not in self.data.keys():
+                self.checkFiles()
+                break
+    # dataFile이 있는지 체크하는 메소드
+    def checkFiles(self):
+        data = {}
+        data['editWindowsXPos'] = None
+        data['eidtWindowsYPos'] = None
+        data['editWindowsWidth'] = None
+        data['editWindowsHeight'] = None
+        data['OpenedWindowsCode'] = []
+        self.data = data
+    # EditWindowsSize 즉, 더블 클릭으로 연 프로그램 작업 창의 크기를 관리하는 클래스
+    # 검색을 위한 윈도우 코드는 항상 입력해야 한다.
+    # windows 코드는 dict 자료형으로 저장됨
+    def appendEditWindowsSize(self, dataCode:str, posX:int, posY:int, width:int, height:int):
+        if not dataCode in self.data['OpenedWindowsCode']:
+            d = list(self.data['OpenedWindowsCode'])
+            d.append(dataCode)
+            self.data['OpenedWindowsCode'] = d
+        if self.data['editWindowsXPos'] == None:
+            self.data['editWindowsXPos'] = {dataCode:posX}
+        elif self.data['editWindowsXPos'] is dict:
+            self.data['editWindowsXPos'][dataCode] = posX
+        if self.data['eidtWindowsYPos'] is None:
+            self.data['eidtWindowsYPos'] = {dataCode:posY}
+        elif self.data['eidtWindowsYPos'] is dict:
+            self.data['eidtWindowsYPos'][dataCode] = posY
+        if self.data['editWindowsWidth'] is None:
+            self.data['editWindowsWidth'] = {dataCode:width}
+        elif self.data['editWindowsWidth'] is dict:
+            self.data['editWindowsWidth'][dataCode] = width
+        if self.data['editWindowsHeight'] is None:
+            self.data['editWindowsHeight'] = {dataCode:height}
+        elif self.data['editWindowsHeight'] is dict:
+            self.data['editWindowsHeight'][dataCode] = height
+    # EditWindowCode가 존재하는지 검색하고, 없으면 새로 만듦. 만들때는 Windows의 사이즈를 받아와 만듬.
+    # WindowsHeight는 Main Windows의 위치로 상대값으로 계산된다.
+    # WindowsCode는 이름을 sha256으로 윈도우의 title을 만들어서 만듦.
+    def EditWindowCodeCheck(self, windowsCode:str, xPos:int, yPos:int):
+        tmp = list(self.data['OpenedWindowsCode'])
+        wd = {}
+        if windowsCode in tmp:
+            wd['xPos'] = xPos + self.data['EditPosX'][windowsCode]
+            wd['yPos'] = yPos + self.data['EditPosY'][windowsCode]
+            wd['width'] = self.data['EditWidth']
+            wd['hieght'] = self.data['height']
+            return wd
+        if windowsCode not in tmp:
+            self.appendEditWindowsSize(windowsCode, 100, 100, 300, 300)
+            wd['xPos'] = xPos + self.data['EditPosX'][windowsCode]
+            wd['yPos'] = yPos + self.data['EditPosY'][windowsCode]
+            wd['width'] = self.data['EditWidth']
+            wd['hieght'] = self.data['height']
+            return wd
+    def ShowEditWindowsCode(self):
+        if 'OpenedWindowsCode' in self.data.keys():
+            return self.data['OpenedWindowsCode']
+        else:
+            self.data['OpenedWindowsCode'] = []
+            return self.data['OpenedWindowsCode']
+    def __del__(self):
+        with open(f"{self.ProjectDir}/programeWindows.json", 'w', encoding='utf-8') as file:
+            json.dump(self.data, file)
 # 프로젝트를 열기 위한 클래스
 class OpenProject(QDialog):
     Project_dir = Signal(str)
@@ -256,11 +331,12 @@ class CreateProject(QDialog):
 class EMSWTreeView(QWidget):
     Action_Type = Signal(ProgrameAction)
     DocumentDir = Signal(str)
-    def __init__(self, root_dir:str):
+    def __init__(self, root_dir:str, config:conf):
         super().__init__()
         self.blakTr = True
         self.colorText = '#0fffff'
         if root_dir != '':
+            self.config = config
             self.document_dir = ''
             self.root = root_dir
             self.child = os.listdir(root_dir)
@@ -269,7 +345,6 @@ class EMSWTreeView(QWidget):
             self.blakTr = False
             self.__start__()
             self.treeView.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
-            self.treeView
             self.init_ui()
         else:
             self.root = 'blank'
@@ -281,6 +356,8 @@ class EMSWTreeView(QWidget):
             self.init_ui()
     def __start__(self):
         self.novels = []
+        if self.root != '' or self.root != None:
+            self.windowData = ProgrameWindowData(self.root)
         if 0 < len(self.root):
             self.root_name = self.root.split('/')[-1]
             self.makeTree()
@@ -331,8 +408,8 @@ class EMSWTreeView(QWidget):
             self.DocumentDir.emit(self.root)
             self.document_dir = self.root
         else:
-            self.DocumentDir.emit(f"{self.root}/{index.data()}")
-            self.document_dir = f"{self.root}/{index.data()}"
+            self.DocumentDir.emit(f"{self.root}/{index.parent().data()}/{index.data()}")
+            self.document_dir = f"{self.root}/{index.parent().data()}/{index.data()}"
         #print(self.document_dir)
         self.Action_Type.emit(ProgrameAction.SelectTreeView)
     def makeGroup(self):
@@ -403,6 +480,23 @@ class EMSWTreeView(QWidget):
                 self.Action_Type.connect(ProgrameAction.FailedTreeViewUpdate)
         except FileNotFoundError:
             pass
+    def OpenEditWindows(self):
+        title = self.document_dir.split('/')[-1]
+        encoding = title.encode()
+        hash = hashlib.sha256()
+        hash.update(encoding)
+        code = hash.hexdigest()
+        if self.windowData:
+            if code not in self.windowData.ShowEditWindowsCode() and os.path.isfile(f"{self.document_dir}.txt"):
+                x, y = self.config.getPosition()
+                print(x, y)
+                self.windowData.appendEditWindowsSize(code, x, y, 100, 100)
+            elif os.path.isdir(self.document_dir):
+                print(3)
+                print('Can not Opend Directories')
+            else:
+                print(4)
+                return
     def init_ui(self):
         if not self.blakTr:
             vlayout = QVBoxLayout()
@@ -416,6 +510,7 @@ class EMSWTreeView(QWidget):
             self.treeView.setModel(self.model)
             selection_model = self.treeView.selectionModel()
             selection_model.currentChanged.connect(self.selectGroupDir)
+            self.treeView.doubleClicked.connect(self.OpenEditWindows)
             vlayout.addLayout(menuView)
             vlayout.addWidget(self.treeView)
             self.setLayout(vlayout)
@@ -436,21 +531,13 @@ class EMSWTreeView(QWidget):
 # TextList는 DataTools의 StackList로 구현하고, TextFormList는 PairList로 구현한다.
 # PairList는 텍스트의 위치값과 고유한 속성을 담고 있는 데이터로 Sentence로 구분되어 프로그램이 인식하기 쉽도록 도와주는
 class TextCanvas(QWidget):
-    def __init__(self):
+    def __init__(self, windowsConfig:ProgrameWindowData, config:conf, dir:str, title:str):
         super().__init__()
-        self.font = QFont('Malgun Gothic', 16)
-    def PaintEvent(self, e):
-        p = QPainter(self)
-        p.setRenderHint(QPainter.RenderHint.TextAntialiasing, True)
-        p.setFont(self.font)
-
-        opt = QTextOption()
-        opt.setWarpMode(QTextOption.WrapMode.WordWrap)
-        opt.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
-        
-        layout = QTextLayout()
-        
-
+        print(1)
+        print(windowsConfig.data)
+        print(config.windows_config)
+        print(dir)
+        print(title)
 # EMSW 기능을 수행하는 MainUI.
 # EMSW 기능이란 작가가 본인 스스로 데이터 맵을 구축하여 창작에 도움이 될 수 있는 프로젝트이다.
 # 좀 더 목적을 밝히자면, 이전에 쓴 내용을 불러와 참고하거나, 이전에 쓴 글의 내용으로 지금 집필하는 내용의 소설에 도움을 받기 위해 사용하는 프로젝트다.
@@ -492,9 +579,9 @@ class EMSW(QMainWindow):
         else:
             self.dir = ''
         if self.dir != '':
-            self.trView = EMSWTreeView(self.dir)
+            self.trView = EMSWTreeView(self.dir, self.config)
         if self.dir == '':
-            self.trView = EMSWTreeView('')
+            self.trView = EMSWTreeView('', self.config)
         self.ProgrameSignal = ProgrameAction.ProgrameStart
         self.makeMenu()
         self.setWindowTitle('EMSW')
