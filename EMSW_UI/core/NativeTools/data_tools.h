@@ -22,6 +22,7 @@ struct DataQueueNode {
     Stack* data;
 } typedef D_Queue;
 
+#define STACK_H
 #define stack Stack
 #define list List
 #define dqueue D_Queue

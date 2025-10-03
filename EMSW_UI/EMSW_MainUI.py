@@ -2,13 +2,11 @@ from PySide6.QtWidgets import (QMainWindow, QWidget, QFileDialog,
                                QVBoxLayout, QHBoxLayout, QPushButton,
                                QLabel, QLineEdit, QMessageBox,
                                QDialog, QInputDialog, QTreeView,
-                               QTreeWidgetItem, QAbstractItemView)
+                               QAbstractItemView)
 from PySide6.QtGui import (QKeyEvent, QAction, QStandardItemModel,
-                           QStandardItem, QPalette, QColor,
-                           QPainter, QFont, QPen,
-                           QTextLayout, QTextOption)
+                           QStandardItem, QPalette, QColor,)
 from PySide6.QtCore import (Qt, Signal, QTimer,
-                            QPointF, QModelIndex)
+                            QModelIndex)
 from enum import Enum, unique
 import hashlib
 
