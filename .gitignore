@@ -10,5 +10,5 @@
 # .vscode 이하의 파일 무시
 .vscode
 
-# data 이하의 파일 무시
-data/*
+# json 파일 무시
+.json

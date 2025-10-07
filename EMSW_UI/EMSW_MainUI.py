@@ -354,11 +354,16 @@ class EMSWTreeView(QWidget):
             self.init_ui()
     def __start__(self):
         self.novels = []
+        self.selectDir = None
         if self.root != '' or self.root != None:
             self.windowData = ProgrameWindowData(self.root)
         if 0 < len(self.root):
             self.root_name = self.root.split('/')[-1]
             self.makeTree()
+    def resetTree(self):
+        self.model.clear()
+        print(self.root)
+        self.__start__()
     def getChild(self, dirs:str):
         print(os.listdir(dirs))
     def makeChildTree(self, dir:str, parents:QStandardItem):
@@ -406,8 +411,9 @@ class EMSWTreeView(QWidget):
             self.DocumentDir.emit(self.root)
             self.document_dir = self.root
         else:
-            self.DocumentDir.emit(f"{self.root}/{index.parent().data()}/{index.data()}")
-            self.document_dir = f"{self.root}/{index.parent().data()}/{index.data()}"
+            self.DocumentDir.emit(f"{self.root}/{index.data()}")
+            self.document_dir = f"{self.root}/{index.data()}"
+            self.selectDir = index.data()
         #print(self.document_dir)
         self.Action_Type.emit(ProgrameAction.SelectTreeView)
     def makeGroup(self):
@@ -450,12 +456,17 @@ class EMSWTreeView(QWidget):
             pass
         self.Action_Type.emit(ProgrameAction.ProjectCreateSuccess)
     def newPage(self):
+        print(self.selectDir)
         text, ok = QInputDialog.getText(None, '새 페이지의 이름을 입력해 주세요', '새 페이지')
-        if ok:
-            if 0 < self.document_dir.__len__() and not (text in os.listdir(f'{self.root}/{self.document_dir}')):
-                dir = f'{self.root}/{self.document_dir}'
+        if not os.path.isdir(self.document_dir):
+            print(self.root)
+            print(self.document_dir)
+        elif ok:
+            if 0 < self.document_dir.__len__() and not (text in os.listdir(f'{self.document_dir}')):
+                dir = f'{self.document_dir}'
                 open(f'{dir}/{text}', 'w', encoding='utf-8').writelines('')
-            elif text in os.listdir(f'{self.root}/{self.document_dir}'):
+                self.UpdateTree()
+            elif text in os.listdir(f'{self.document_dir}'):
                 QMessageBox.Information(self, '경고', '파일 이름이 중복입니다.', QMessageBox.StandardButton.Ok)
             else:
                 QMessageBox.information(self, '취소', '페이지 생성을 취소하였습니다.', QMessageBox.StandardButton.Ok)
@@ -465,15 +476,19 @@ class EMSWTreeView(QWidget):
             model = self.treeView.model()
             if model is None:
                 return None
-            matching_items = self.model.findItems(self.document_dir.split('/')[-1], Qt.MatchFlag.MatchRecursive, 0)
-            if matching_items:
-                parent_item = matching_items[0]
+            elif model:
+                nowChild = []
+                selectModel = None
+                for t in self.model.findItems(self.selectDir, Qt.MatchFlag.MatchExactly | Qt.MatchFlag.MatchRecursive):
+                    if t.text() == self.selectDir:
+                        selectModel = t
+                        for row_index in range(t.rowCount()):
+                            nowChild.append(t.child(row_index, 0).text())
                 for t in ch:
-                    if t in matching_items:
-                        continue
-                    else:
-                        new_item = QStandardItem(t)
-                        parent_item.appendRow(new_item)
+                    if t not in nowChild:
+                        qt = QStandardItem(t)
+                        if selectModel:
+                            selectModel.appendRow(qt)
             else:
                 self.Action_Type.connect(ProgrameAction.FailedTreeViewUpdate)
         except FileNotFoundError:
@@ -492,6 +507,7 @@ class EMSWTreeView(QWidget):
             elif os.path.isdir(self.document_dir):
                 print(3)
                 print('Can not Opend Directories')
+                print(self.selectDir)
             else:
                 print(4)
                 return
@@ -502,6 +518,7 @@ class EMSWTreeView(QWidget):
             new_novel = QPushButton('새 소설')
             new_novel.clicked.connect(self.makeGroup)
             new_page = QPushButton('새 페이지')
+            new_page.clicked.connect(self.newPage)
             menuView = QHBoxLayout()
             menuView.addWidget(new_novel)
             menuView.addWidget(new_page)
@@ -604,8 +621,10 @@ class EMSW(QMainWindow):
                 self.trView.DocumentDir.connect(self.setDocument)
                 self.ProgrameSignal = ProgrameAction.ProgrameDuring
             elif self.ProgrameSignal == ProgrameAction.UpdateTreeView:
-                self.trView.UpdateTree()
-                self.ProgrameSignal = ProgrameAction.ProgrameDuring
+                print(self.dir)
+                self.trView.setRoot(self.dir)
+                self.trView.resetTree()
+                self.ProgrameSignal = ProgrameAction.SetTheProjectDir
             elif self.ProgrameSignal == ProgrameAction.FinishedTreeViewWork:
                 self.ProgrameSignal = ProgrameAction.ProgrameDuring
     # update에서 가장 빨리 호출되는 메소드.
@@ -618,7 +637,7 @@ class EMSW(QMainWindow):
             pass
         elif self.ProgrameSignal == ProgrameAction.SetTheProjectDir:
             self.trView.setRoot(self.config.programe_data['LastOpenDir'])
-            self.ProgrameSignal = ProgrameAction.ProgrameDuring
+            self.ProgrameSignal = ProgrameAction.UpdateUI
         else:
             self.ProgrameSignal = ProgrameAction.ProgrameDuring
     # fixedUpdate 호출 이전에 반드시 먼저 호출되어야 하는 설정 변수들과 Windows 환경 변수들
@@ -632,7 +651,7 @@ class EMSW(QMainWindow):
             self.config.updateScale(scale.width(), scale.height())
         try:
             if self.trView.geometry().width() != self.config.windows_config['treeview_width'] and self.trView.geometry().height() != self.config.windows_config['treeview_height'] and self.programeInfo == ProgrameAction.ProgrameDuring:
-                self.programeInfo = ProgrameAction.UpdateUI
+                self.ProgrameSignal = ProgrameAction.UpdateUI
         except:
             pass
     # 주기적으로 업데이트되는 메소드. 또한, initUI를 호출하여 주기적으로 프로그램의 UI를 변경한다.
@@ -659,6 +678,7 @@ class EMSW(QMainWindow):
             if self.programeInfo != self.dir:
                 self.programeInfo = self.dir
             self.trView.setRoot(self.dir)
+            self.ProgrameSignal = ProgrameAction.UpdateTreeView
     # Menu를 만드는 메소드
     def makeMenu(self):
         menu = self.menuBar()
@@ -671,7 +691,6 @@ class EMSW(QMainWindow):
         project_menu.triggered.connect(self.newProjectAction)
         createDocuments = QAction('새 문서', self)
         createDocuments.triggered.connect(self.newDocumentsAction)
-        self.ProgrameSignal = ProgrameAction.UpdateTreeView
         menu.addAction(open_menu)
         menu.addAction(project_menu)
         menu.addAction(createDocuments)
@@ -683,6 +702,7 @@ class EMSW(QMainWindow):
         opePro.Action_Type.connect(self.getProgrameSignal)
         opePro.exec()
         print(f'작업폴더 열기 작업이 완료되었습니다. : {self.dir}')
+        self.ProgrameSignal = ProgrameAction.UpdateTreeView
     # 프로젝트를 여는 메뉴를 호출하는 메소드
     def newProjectAction(self):
         print('프로젝트 추가 작업이 수행되었습니다.')
@@ -691,6 +711,7 @@ class EMSW(QMainWindow):
         crepro.Action_Type.connect(self.getProgrameSignal)
         crepro.exec()
         print(f'프로젝트 추가 작업이 완료되었습니다. : {self.dir}')
+        self.ProgrameSignal = ProgrameAction.UpdateTreeView
     def newDocumentsAction(self):
         print('파일 추가 작업이 수행되었습니다.')
         if self.targetDir == '':
