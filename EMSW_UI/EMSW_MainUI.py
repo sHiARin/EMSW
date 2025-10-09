@@ -12,7 +12,7 @@ import hashlib
 
 from Config.config import conf
 
-import os, json
+import os, json, platform
 
 # 메인 메뉴의 액션을 구분하기 위한 전용 클래스
 @unique
@@ -97,15 +97,21 @@ def CheckProgrameSignal(signal:int):
 # programeUIData는 기본적으로 열린 Project의 설정창을 참고하게 되므로, ProjectDir이 설정이 되어야 한다.
 class ProgrameWindowData:
     def __init__(self, ProjectDir:str):
-        self.ProjectDir = ProjectDir
+        if ProjectDir == 'blank':
+            self.ProjectDir = ''
+        else:
+            self.ProjectDir = ProjectDir
         self.data = {}
-        with open(f"{self.ProjectDir}/programeWindows.json", mode='r', encoding='utf-8') as file:
-            self.data = json.load(file)
-        keys = ['WindowCode', 'editWindowsXPos', 'eidtWindowsYPos', 'editWindowsWidth', 'editWindowsHeight', 'OpenedWindowsCode']
-        for k in keys:
-            if k not in self.data.keys():
-                self.checkFiles()
-                break
+        if self.ProjectDir != '':
+            with open(f"{self.ProjectDir}/programeWindows.json", mode='r', encoding='utf-8') as file:
+                self.data = json.load(file)
+            keys = ['WindowCode', 'editWindowsXPos', 'eidtWindowsYPos', 'editWindowsWidth', 'editWindowsHeight', 'OpenedWindowsCode']
+            for k in keys:
+                if k not in self.data.keys():
+                    self.checkFiles()
+                    break
+        else:
+            return
     # dataFile이 있는지 체크하는 메소드
     def checkFiles(self):
         data = {}
@@ -355,7 +361,7 @@ class EMSWTreeView(QWidget):
     def __start__(self):
         self.novels = []
         self.selectDir = None
-        if self.root != '' or self.root != None:
+        if self.root != 'balnk' or self.root != None:
             self.windowData = ProgrameWindowData(self.root)
         if 0 < len(self.root):
             self.root_name = self.root.split('/')[-1]
@@ -589,8 +595,12 @@ class EMSW(QMainWindow):
         self.projectList = self.config.programe_data['ProjectDirs']
         if not os.path.isdir(self.programeInfo):
             self.dir = ''
+        if self.programeInfo == '~/Documents':
+            self.dir = ''
         elif self.programeInfo != '':
             self.dir = self.programeInfo
+        elif self.programeInfo == r'C:\User':
+            self.dir = ''
         else:
             self.dir = ''
         if self.dir != '':
