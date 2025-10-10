@@ -52,7 +52,7 @@ PySide6의 입력 감지가 아닌, pynput의 keyboard input signal을 통해 �
 
 픽스할 과제 : mac에서 오류 발생. 아마도, 기존의 설정 파일이 mac과 서로 일치하지 않는 점 때문에 발생한 오류로 보임. config 파일의 픽스가 필요함.
 픽스 보고 : config 파일 픽스와 동시에 EMSW_UI에서 호출하는 턴에 대해 미묘한 버그 픽스 완료.
-다음 픽스 과제 : UI 부분의 수정이 필요함.
+다음 픽스 과제 : UI 부분의 수정이 필요함. > 최우선 픽스 순위
 
 (이후 목표)
 WikiTree View를 만들기. 여기서 WikiTree View는 'WikiTree'와 유사한 형태의 형식이라는 것임.

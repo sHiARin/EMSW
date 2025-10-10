@@ -9,10 +9,11 @@ class conf:
             if 'data' not in os.listdir('./'):
                 os.mkdir('./data')
             dir_lists = os.listdir('./data')
+            print(dir_lists)
             self.openError = False
-            if 'mackintoshi_config.json' not in dir_lists:
+            if 'windows_config_mac.json' not in dir_lists:
                 self.startWindowsMac()
-            if 'ProjectDirectories_win.json':
+            if 'ProjectDirectories_win.json' not in dir_lists:
                 self.programeLoadMac()
             try:
                 if os.path.isfile('./data/windows_config_mac.json'):
@@ -20,12 +21,14 @@ class conf:
                         self.windows_config = json.load(file)
             except:
                 self.openError = True
+                print(self.openError)
             try:
                 if os.path.isfile('./data/ProjectDirectories_mac.json'):
                     with open('./data/ProjectDirectories_mac.json', mode='r', encoding='utf-8') as file:
                         self.programe_data = json.load(file)
             except:
                 self.openError = True
+                print(self.openError)
             self.checkConfig_Mac()
         else:
             if 'data' not in os.listdir('./'):
@@ -109,7 +112,10 @@ class conf:
                 self.windows_config['treeview_height'] = self.windows_config['windows_scale_height'] - 50
             if 'widget_align' not in self.windows_config.keys():
                 self.windows_config['widget_align'] = 'left'
+    # jsonFile을 확인하고, 최종적으로 정정하는 메소드
+    # Mac 전용 메소드
     def checkConfig_Mac(self):
+        print(self.openError)
         if self.openError:
             self.startWindowsMac()
             self.programeLoadMac()
@@ -117,15 +123,16 @@ class conf:
                 print('Not Dictionary is here')
             if 'treeview_width' not in self.windows_config.keys():
                 self.windows_config['treeview_width'] = self.windows_config['windows_scale_width'] / 5
-            if 'treeviwe_height' not in self.windows_config.keys():
+            if 'treeview_height' not in self.windows_config.keys():
                 self.windows_config['treeview_height'] = self.windows_config['windows_scale_height'] - 50
             if 'widget_align' not in self.windows_config.keys():
                 self.windows_config['widget_align'] = 'left'
         elif (not self.openError) and (self.windows_config is not None) and (self.programe_data is not None):
+            print(self.windows_config.keys())
             if 'treeview_width' not in self.windows_config.keys():
-                self.windows_config['treeview_width'] = self.windows_config['windows_scale_width'] / 5
-            if 'treeviwe_height' not in self.windows_config.keys():
-                self.windows_config['treeview_height'] = self.windows_config['windows_scale_height'] - 50
+                self.windows_config['treeview_width'] = int(self.windows_config['windows_scale_width'] / 5)
+            if 'treeview_height' not in self.windows_config.keys():
+                self.windows_config['treeview_height'] = int(self.windows_config['windows_scale_height'] - 50)
             if 'widget_align' not in self.windows_config.keys():
                 self.windows_config['widget_align'] = 'left'
         if self.windows_config is None:
@@ -142,6 +149,7 @@ class conf:
         self.windows_config['windows_scale_width'] = width
         self.windows_config['windows_scale_height'] = height
         self.updated = True
+    # ProjectDir을 추가하는 메소드
     def AppenddProjectDir(self, dir:str):
         dirs = list(self.programe_data['ProjectDirs'])
         print(dirs)
@@ -153,13 +161,22 @@ class conf:
         if dir != self.programe_data['LastOpenDir']:
             self.programe_data['LastOpenDir'] = dir
         self.updated = True
+    # TreeView의 width와 height를 업데이트하는 메소드
+    def UpdateTreeViewScale(self, width:int, height:int):
+        self.windows_config['treeview_width'] = width
+        self.windows_config['treeview_height'] = height
+    # 포지션을 확인하는 메소드
     def getPosition(self):
         return self.windows_config['windows_pos_x'], self.windows_config['windows_pos_y']
+    # 객체가 삭제될 때 최종적으로 호출하는 메소드
     def __del__(self):
-        print(self.programe_data.values())
+        print(self.windows_config == None)
+        print(self.programe_data == None)
         if self.updated and (not self.openError) and platform.system() == 'Darwin':
+            print('Update')
             with open('./data/windows_config_mac.json', 'w', encoding='utf-8') as file:
                 json.dump(self.windows_config, file)
+            print(self.windows_config)
             with open('./data/ProjectDirectories_mac.json', 'w', encoding='utf-8') as file:
                 json.dump(self.programe_data, file)
         elif self.updated and (not self.openError) and platform.system() == "windows":

@@ -96,20 +96,26 @@ def CheckProgrameSignal(signal:int):
 # ProgrameUIData를 관리하기 위한 클래스
 # programeUIData는 기본적으로 열린 Project의 설정창을 참고하게 되므로, ProjectDir이 설정이 되어야 한다.
 class ProgrameWindowData:
-    def __init__(self, ProjectDir:str):
+    def __init__(self, ProjectDir:str, config:conf):
+        self.config = config
         if ProjectDir == 'blank':
             self.ProjectDir = ''
         else:
             self.ProjectDir = ProjectDir
         self.data = {}
         if self.ProjectDir != '':
-            with open(f"{self.ProjectDir}/programeWindows.json", mode='r', encoding='utf-8') as file:
-                self.data = json.load(file)
-            keys = ['WindowCode', 'editWindowsXPos', 'eidtWindowsYPos', 'editWindowsWidth', 'editWindowsHeight', 'OpenedWindowsCode']
-            for k in keys:
-                if k not in self.data.keys():
-                    self.checkFiles()
-                    break
+            if os.path.isfile(f"{self.ProjectDir}/project_data.json"):
+                with open(f"{self.ProjectDir}/project_data.json", mode='r', encoding='utf-8') as file:
+                    self.data = json.load(file)
+                keys = ['WindowCode', 'editWindowsXPos', 'eidtWindowsYPos', 'editWindowsWidth', 'editWindowsHeight', 'OpenedWindowsCode']
+                for k in keys:
+                    if k not in self.data.keys():
+                        self.checkFiles()
+                        break
+            else:
+                self.checkFiles()
+                with open(f"{self.ProjectDir}/project_data.json", mode='r', encoding='utf-8') as file:
+                    self.data = json.dump(file)
         else:
             return
     # dataFile이 있는지 체크하는 메소드
@@ -171,8 +177,11 @@ class ProgrameWindowData:
             self.data['OpenedWindowsCode'] = []
             return self.data['OpenedWindowsCode']
     def __del__(self):
-        with open(f"{self.ProjectDir}/programeWindows.json", 'w', encoding='utf-8') as file:
-            json.dump(self.data, file)
+        if os.path.isdir(self.ProjectDir) and self.ProjectDir != '~/Documents' and self.ProjectDir != r'C:\\Users' and self.ProjectDir == '':
+            print(self.ProjectDir)
+        elif platform.system() != 'Darwin':
+            with open(f"{self.ProjectDir}/programeWindows.json", 'w', encoding='utf-8') as file:
+                json.dump(self.data, file)
 # 프로젝트를 열기 위한 클래스
 class OpenProject(QDialog):
     Project_dir = Signal(str)
@@ -251,7 +260,10 @@ class CreateProject(QDialog):
         self.PosY = y
         self.WidthSize = width
         self.HeightSize = height
-        self.dir = r'C:\Users\asuna\OneDrive\문서'
+        if platform.system() == 'windows':
+            self.dir = r'C:\Users\asuna\OneDrive\문서'
+        elif platform.system() == "Darwin":
+            self.dir = '~\Documents'
         self.name = '새 프로젝트'
         self.__init_ui__()
     def __init_ui__(self):
@@ -308,8 +320,18 @@ class CreateProject(QDialog):
         self.name = self.name_text.text()
         if self.__make_directory__():
             QMessageBox.information(self, "확인", "프로젝트가 성공적으로 생성되었습니다.", QMessageBox.StandardButton.Ok)
-            self.dir = f'{self.dir}\\{self.name}'
-            self.Project_dir.emit(self.dir)
+            if platform.system() == 'windows':
+                if not os.path.isdir(f'{self.dir}\\{self.name}'):
+                    os.mkdir(f'{self.dir}\\{self.name}')
+                self.Project_dir.emit(f'{self.dir}\\{self.name}')
+                self.Action_Type.emit(ProgrameAction.UpdateTreeView)
+                print(f'{self.dir}\\{self.name}')
+            elif platform.system() == 'Darwin':
+                if not os.path.isdir(f"{self.dir}/{self.name}"):
+                    os.mkdir(f"{self.dir}/{self.name}")
+                self.Project_dir.emit(f"{self.dir}/{self.name}")
+                self.Action_Type.emit(ProgrameAction.UpdateTreeView)
+                print(f"{self.dir}/{self.name}")
         else:
             self.Project_dir.emit('')
             QMessageBox.critical(self, "경고", "프로젝트 생성이 실패했습니다. (프로젝트 이름이 중복입니다.)", QMessageBox.StandardButton.Ok)
@@ -317,10 +339,17 @@ class CreateProject(QDialog):
     # 프로젝트를 생성하는 메소드로, dir링크를 받아서 직접 생성한다. 이때, 생성에 성공한 경우 False를 반환하고, 생성에 실패한 경우 True를 반환한다.
     def __make_directory__(self):
         #print('make_directory')
-        if os.path.isdir(rf"{self.dir}\\{self.name}"):
-            return False
-        os.makedirs(rf"{self.dir}\\{self.name}")
-        return True
+        if platform.system() == 'windows':
+            if os.path.isdir(rf"{self.dir}\\{self.name}"):
+                return False
+            os.makedirs(rf"{self.dir}\\{self.name}")
+            return True
+        elif platform.system() == "Darwin":
+            print(f"{self.dir}/{self.name}")
+            if os.path.isdir(f"{self.dir}/{self.name}"):
+                return False
+            os.mkdir(f"{self.dir}/{self.name}")
+            return True
     # 프로젝트를 닫는 메소드 현 이벤트에 따라 데이터를 다시 한번 교정한다.
     def closeEvent(self, event):
         if self.Project_dir == '':
@@ -336,11 +365,11 @@ class EMSWTreeView(QWidget):
     Action_Type = Signal(ProgrameAction)
     DocumentDir = Signal(str)
     def __init__(self, root_dir:str, config:conf):
+        self.config = config
         super().__init__()
         self.blakTr = True
         self.colorText = '#0fffff'
         if root_dir != '':
-            self.config = config
             self.document_dir = ''
             self.root = root_dir
             self.child = os.listdir(root_dir)
@@ -362,7 +391,7 @@ class EMSWTreeView(QWidget):
         self.novels = []
         self.selectDir = None
         if self.root != 'balnk' or self.root != None:
-            self.windowData = ProgrameWindowData(self.root)
+            self.windowData = ProgrameWindowData(self.root, self.config)
         if 0 < len(self.root):
             self.root_name = self.root.split('/')[-1]
             self.makeTree()
@@ -428,7 +457,7 @@ class EMSWTreeView(QWidget):
         path = f"{self.root}/{title}.json"
         text, ok = QInputDialog.getText(None, '새 소설의 이름을 지정해주세요.', '소설 이름을 입력하세요.')
         print(os.listdir(self.root))
-        if os.path.isfile(f"{self.root}/{title}.json"):
+        if os.path.isfile(path):
             if ok:
                 with open(path, 'r', encoding='utf-8-sig') as file:
                     js_data = json.load(file)
@@ -519,6 +548,7 @@ class EMSWTreeView(QWidget):
                 return
     def init_ui(self):
         if not self.blakTr:
+            print("TR 1")
             vlayout = QVBoxLayout()
             vlayout.setAlignment(Qt.AlignmentFlag.AlignCenter)
             new_novel = QPushButton('새 소설')
@@ -536,6 +566,7 @@ class EMSWTreeView(QWidget):
             vlayout.addWidget(self.treeView)
             self.setLayout(vlayout)
         else:
+            print("TR 2")
             vlayout = QVBoxLayout()
             vlayout.setAlignment(Qt.AlignmentFlag.AlignTop)
             new_novel = QPushButton('새 프로젝트')
@@ -680,6 +711,7 @@ class EMSW(QMainWindow):
     # 가장 나중에 업데이트되는 메소드. 주로 후처리 Signal을 처리한다.
     def __last_update__(self):
         self.LastUpdate()
+        self.TreeViewScaleUpdate()
     # 가장 나중에 업데이트 되는 것. 일반적으로 데이터를 검증하는 작업을 처리한다.
     def LastUpdate(self):
         if self.ProgrameSignal == ProgrameAction.OpenProjectSuccess:
@@ -689,6 +721,13 @@ class EMSW(QMainWindow):
                 self.programeInfo = self.dir
             self.trView.setRoot(self.dir)
             self.ProgrameSignal = ProgrameAction.UpdateTreeView
+    # TreeView 사이즈를 변경하는 메소드 (일반적으로 MainView과 비교하여 10의 여백을 갖는다.)
+    # LastUpdate에서 호출
+    def TreeViewScaleUpdate(self):
+        tr_width = self.config.windows_config['windows_scale_width'] - 20
+        tr_height = self.config.windows_config['windows_scale_height'] - 20
+        self.config.UpdateTreeViewScale(tr_width, tr_height)
+        self.trView.updateSize(tr_width, tr_height)
     # Menu를 만드는 메소드
     def makeMenu(self):
         menu = self.menuBar()
@@ -770,4 +809,6 @@ class EMSW(QMainWindow):
     # 창이 닫힐때 실행되는 동작을 정의한다.
     # 프로젝트가 닫히는 절차를 정의한다.
     def closeEvent(self, event):
-        pass
+        print(self.config.getPosition())
+        print(self.width, self.height)
+        self.config.updateScale(self.width, self.height)
