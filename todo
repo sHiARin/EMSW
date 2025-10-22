@@ -54,6 +54,25 @@ PySide6의 입력 감지가 아닌, pynput의 keyboard input signal을 통해 �
 픽스 보고 : config 파일 픽스와 동시에 EMSW_UI에서 호출하는 턴에 대해 미묘한 버그 픽스 완료.
 다음 픽스 과제 : UI 부분의 수정이 필요함. > 최우선 픽스 순위
 
+2025-10-15일 기준 완수 과제, 진행해야 하는 과제, 픽스 할 과제
+완수된 과제 : TreeView Action
+완수할 과제 : WikiTree View를 여는 버튼을 추가하고, WikiTree의 WikiView를 보여주는 창의 디자인을 마칠 것.
+완수할 과제 : Document View의 액션 작업 전, Document View의 작업을 마칠 것.
+완수할 과제 : Document View 액션 작업
+
+첫번째 과제 : Document View에서 키보드로 엑션을 입력받아 C에서 인식된 데이터를 View를 구성하기 위한 자료구조에 데이터를 입력하는 모듈 구성
+두번째 과제 : 데이터를 입력하는 모듈을 Python의 UI 동작부로 넘겨서 데이터를 보여줄 수 있도록 구성
+세번째 과제 : 입력한 키보드 입력을 측정하여, 해당 입력이 문자 데이터였을 경우, 작업 감시 타이머를 리셋하고, 아닌 경우 작업 감시 타이머의 시간이 오버했을 경우, 타이머를 멈춤.
+(단, 세번째 과제는 필요시 PID 또는 Programe Name 또는 Project Name을 측정하여 Python에서 감시를 측정할 수 있도록 전역 static 변수를 작성.)
+네번째 과제 : 첫번째에서 세번째 과제를 완수한 경우, 해당 데이터를 Python에서 처리할 수 있도록 만듬.
+다섯번째 과제 : 일반적으로 글꼴의 타입은 Python에서 수신하여 그리나, '해당 과정'에 사용되는 글꼴은 System 글꼴로 정할 수 있도록 만듦.
+
+픽스 보고 : mac에서 오류 발생. 아마도, 기존의 설정 파일이 mac과 서로 일치하지 않는 점 때문에 발생한 오류로 보임. config 코드의 픽스가 필요함.
+픽스 보고 : config 파일 픽스와 동시에 EMSW_UI에서 호출하는 턴에 대해 미묘한 버그 픽스 완료.
+픽스 보고 : UI 부분의 수정 완료.
+
+픽스할 과제 : mac과 windows의 불일치 문제는 지속적으로 추적하여 보고해야 함.
+
 (이후 목표)
 WikiTree View를 만들기. 여기서 WikiTree View는 'WikiTree'와 유사한 형태의 형식이라는 것임.
 WikiTree View와 Documents View 모두 HWPX 또는 HWP, DOXC로 출력할 수 있도록 개발.

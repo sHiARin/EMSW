@@ -30,7 +30,7 @@ class conf:
                 self.openError = True
                 print(self.openError)
             self.checkConfig_Mac()
-        else:
+        elif "Windows" == platform.system():
             if 'data' not in os.listdir('./'):
                 os.mkdir('./data')
             dir_lists = os.listdir('./data')
@@ -43,7 +43,6 @@ class conf:
                 if os.path.isfile('./data/windows_config_win.json'):
                     with open('./data/windows_config_win.json', mode='r', encoding='utf-8') as file:
                         self.windows_config = json.load(file)
-                
             except:
                 print('error!')
             try:
@@ -86,6 +85,7 @@ class conf:
         df['treeview_height'] = df['windows_scale_height'] - 50
         with open('./data/windows_config_win.json', 'w', encoding='utf-8') as file:
             json.dump(df, file)
+        self.windows_config = df
     # ProjectDirectories_win.json 파일 체크를 수행하는 메소드
     def programeLoadWin(self):
         df = {}
@@ -101,17 +101,21 @@ class conf:
             self.programeLoadWin()
             if 'treeview_width' not in self.windows_config.keys():
                 self.windows_config['treeview_width'] = self.windows_config['windows_scale_width'] / 5
-            if 'treeviwe_height' not in self.windows_config.keys():
+            if 'treeview_height' not in self.windows_config.keys():
                 self.windows_config['treeview_height'] = self.windows_config['windows_scale_height'] - 50
             if 'widget_align' not in self.windows_config.keys():
                 self.windows_config['widget_align'] = 'left'
-        elif not self.openError:
+        elif not self.openError and self.windows_config is not None and self.programe_data is not None:
             if 'treeview_width' not in self.windows_config.keys():
                 self.windows_config['treeview_width'] = self.windows_config['windows_scale_width'] / 5
-            if 'treeviwe_height' not in self.windows_config.keys():
+            if 'treeview_height' not in self.windows_config.keys():
                 self.windows_config['treeview_height'] = self.windows_config['windows_scale_height'] - 50
             if 'widget_align' not in self.windows_config.keys():
                 self.windows_config['widget_align'] = 'left'
+            if 'EditTextWindow' not in self.windows_config.keys():
+                self.windows_config['EditTextWindow'] = []
+        else:
+            print('None Exception')
     # jsonFile을 확인하고, 최종적으로 정정하는 메소드
     # Mac 전용 메소드
     def checkConfig_Mac(self):
@@ -170,8 +174,6 @@ class conf:
         return self.windows_config['windows_pos_x'], self.windows_config['windows_pos_y']
     # 객체가 삭제될 때 최종적으로 호출하는 메소드
     def __del__(self):
-        print(self.windows_config == None)
-        print(self.programe_data == None)
         if self.updated and (not self.openError) and platform.system() == 'Darwin':
             print('Update')
             with open('./data/windows_config_mac.json', 'w', encoding='utf-8') as file:
@@ -179,7 +181,7 @@ class conf:
             print(self.windows_config)
             with open('./data/ProjectDirectories_mac.json', 'w', encoding='utf-8') as file:
                 json.dump(self.programe_data, file)
-        elif self.updated and (not self.openError) and platform.system() == "windows":
+        elif self.updated and (not self.openError) and platform.system() == "Windows":
             with open('./data/windows_config_win.json', 'w', encoding='utf-8') as file:
                 json.dump(self.windows_config, file)
             with open('./data/ProjectDirectories_win.json', 'w', encoding='utf-8') as file:

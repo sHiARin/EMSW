@@ -98,24 +98,42 @@ def CheckProgrameSignal(signal:int):
 class ProgrameWindowData:
     def __init__(self, ProjectDir:str, config:conf):
         self.config = config
+        self.RunFalse = False
         if ProjectDir == 'blank':
             self.ProjectDir = ''
         else:
             self.ProjectDir = ProjectDir
         self.data = {}
         if self.ProjectDir != '':
-            if os.path.isfile(f"{self.ProjectDir}/project_data.json"):
-                with open(f"{self.ProjectDir}/project_data.json", mode='r', encoding='utf-8') as file:
-                    self.data = json.load(file)
-                keys = ['WindowCode', 'editWindowsXPos', 'eidtWindowsYPos', 'editWindowsWidth', 'editWindowsHeight', 'OpenedWindowsCode']
-                for k in keys:
-                    if k not in self.data.keys():
-                        self.checkFiles()
-                        break
-            else:
-                self.checkFiles()
-                with open(f"{self.ProjectDir}/project_data.json", mode='r', encoding='utf-8') as file:
-                    self.data = json.dump(file)
+            if platform.system() == "Windows":
+                if os.path.isfile(f"{self.ProjectDir}/project_data_win.json"):
+                    with open(f"{self.ProjectDir}/project_data_win.json", mode='r', encoding='utf-8') as file:
+                        self.data = json.load(file)
+                    keys = ['WindowCode', 'editWindowsXPos', 'eidtWindowsYPos', 'editWindowsWidth', 'editWindowsHeight', 'OpenedWindowsCode']
+                    for k in keys:
+                        if k not in self.data.keys():
+                            self.checkFiles()
+                            break
+                else:
+                    self.checkFiles()
+                    try:
+                        with open(f"{self.ProjectDir}/project_data_win.json", mode='r', encoding='utf-8') as file:
+                            self.data = json.dump(file)
+                    except FileNotFoundError as e:
+                        self.RunFalse = True
+            elif platform.system() == "Darwin":
+                if os.path.isfile(f"{self.ProjectDir}/project_data_mac.json"):
+                    with open(f"{self.ProjectDir}/project_data_win.json", mode='r', encoding='utf-8') as file:
+                        self.data = json.load(file)
+                    keys = ['WindowCode', 'editWindowsXPos', 'eidtWindowsYPos', 'editWindowsWidth', 'editWindowsHeight', 'OpenedWindowsCode']
+                    for k in keys:
+                        if k not in self.data.keys():
+                            self.checkFiles()
+                            break
+                else:
+                    self.checkFiles()
+                    with open(f"{self.ProjectDir}/project_data_win.json", mode='w', encoding='utf-8') as file:
+                        self.data = json.dump(file)
         else:
             return
     # dataFile이 있는지 체크하는 메소드
@@ -379,7 +397,7 @@ class EMSWTreeView(QWidget):
             self.__start__()
             self.treeView.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
             self.init_ui()
-        else:
+        elif root_dir == r"C:\User" and root_dir == '' and "~/Documents":
             self.root = 'blank'
             self.child = []
             self.treeView = QTreeView(self)
@@ -390,6 +408,7 @@ class EMSWTreeView(QWidget):
     def __start__(self):
         self.novels = []
         self.selectDir = None
+        print(self.root)
         if self.root != 'balnk' or self.root != None:
             self.windowData = ProgrameWindowData(self.root, self.config)
         if 0 < len(self.root):
@@ -405,7 +424,9 @@ class EMSWTreeView(QWidget):
         for file in os.listdir(dir):
             print(file)
             if os.path.isdir(f"{dir}/{file}"):
-                continue
+                child_Item = QStandardItem(file)
+                self.makeChildTree(f"{dir}/{file}", child_Item)
+                parents.appendRow(child_Item)
             elif os.path.isfile(f"{dir}/{file}"):
                 child = file.split('.')[0]
                 child_Item = QStandardItem(child)
@@ -414,6 +435,7 @@ class EMSWTreeView(QWidget):
     def makeTree(self):
         self.root_tree = QStandardItem(self.root_name)
         for t in self.child:
+            print(t)
             if os.path.isdir(f"{self.root}/{t}"):
                 t_item = QStandardItem(t)
                 t_item = self.makeChildTree(f"{self.root}/{t}", t_item)
@@ -502,7 +524,7 @@ class EMSWTreeView(QWidget):
                 open(f'{dir}/{text}', 'w', encoding='utf-8').writelines('')
                 self.UpdateTree()
             elif text in os.listdir(f'{self.document_dir}'):
-                QMessageBox.Information(self, '경고', '파일 이름이 중복입니다.', QMessageBox.StandardButton.Ok)
+                QMessageBox.information(self, '경고', '파일 이름이 중복입니다.', QMessageBox.StandardButton.Ok)
             else:
                 QMessageBox.information(self, '취소', '페이지 생성을 취소하였습니다.', QMessageBox.StandardButton.Ok)
     def UpdateTree(self):
@@ -519,7 +541,9 @@ class EMSWTreeView(QWidget):
                         selectModel = t
                         for row_index in range(t.rowCount()):
                             nowChild.append(t.child(row_index, 0).text())
+                print(ch)
                 for t in ch:
+                    print(t)
                     if t not in nowChild:
                         qt = QStandardItem(t)
                         if selectModel:
@@ -539,11 +563,12 @@ class EMSWTreeView(QWidget):
                 x, y = self.config.getPosition()
                 print(x, y)
                 self.windowData.appendEditWindowsSize(code, x, y, 100, 100)
-            elif os.path.isdir(self.document_dir):
+            elif not os.path.isdir(self.document_dir):
                 print(3)
                 print('Can not Opend Directories')
                 print(self.selectDir)
-            else:
+            elif os.path.isdir(self.document_dir):
+                os.listdir(self.document_dir)
                 print(4)
                 return
     def init_ui(self):
@@ -578,18 +603,6 @@ class EMSWTreeView(QWidget):
         self.setPalette(palette)
         self.setAutoFillBackground(True)
         self.Action_Type.emit(ProgrameAction.FinishedTreeViewWork)
-# Text를 입력받았을때, Text를 Drawing하는 클래스
-# TextFormList를 통해 Text의 모양을 계산하고, 배치를 계산한 뒤, TextList를 불러와 드로잉한다.
-# TextList는 DataTools의 StackList로 구현하고, TextFormList는 PairList로 구현한다.
-# PairList는 텍스트의 위치값과 고유한 속성을 담고 있는 데이터로 Sentence로 구분되어 프로그램이 인식하기 쉽도록 도와주는
-class TextCanvas(QWidget):
-    def __init__(self, windowsConfig:ProgrameWindowData, config:conf, dir:str, title:str):
-        super().__init__()
-        print(1)
-        print(windowsConfig.data)
-        print(config.windows_config)
-        print(dir)
-        print(title)
 # EMSW 기능을 수행하는 MainUI.
 # EMSW 기능이란 작가가 본인 스스로 데이터 맵을 구축하여 창작에 도움이 될 수 있는 프로젝트이다.
 # 좀 더 목적을 밝히자면, 이전에 쓴 내용을 불러와 참고하거나, 이전에 쓴 글의 내용으로 지금 집필하는 내용의 소설에 도움을 받기 위해 사용하는 프로젝트다.
@@ -634,7 +647,7 @@ class EMSW(QMainWindow):
             self.dir = ''
         else:
             self.dir = ''
-        if self.dir != '':
+        if self.dir != '' and self.dir != r'C\:User':
             self.trView = EMSWTreeView(self.dir, self.config)
         if self.dir == '':
             self.trView = EMSWTreeView('', self.config)
@@ -715,8 +728,6 @@ class EMSW(QMainWindow):
     # 가장 나중에 업데이트 되는 것. 일반적으로 데이터를 검증하는 작업을 처리한다.
     def LastUpdate(self):
         if self.ProgrameSignal == ProgrameAction.OpenProjectSuccess:
-            print("작업 폴더 열기가 완료되었습니다.")
-            print(f"웹소설 작업 폴더 : {self.dir}")
             if self.programeInfo != self.dir:
                 self.programeInfo = self.dir
             self.trView.setRoot(self.dir)
@@ -740,9 +751,14 @@ class EMSW(QMainWindow):
         project_menu.triggered.connect(self.newProjectAction)
         createDocuments = QAction('새 문서', self)
         createDocuments.triggered.connect(self.newDocumentsAction)
+        openWiki = QAction("위키 열기", self)
+        openWiki.triggered.connect(self.openWikitree)
         menu.addAction(open_menu)
         menu.addAction(project_menu)
         menu.addAction(createDocuments)
+    # 위키트리 뷰를 여는 메소드
+    def openWikitree(self):
+        pass
     # 프로젝트를 여는 매뉴를 호출하는 메소드
     def openProject(self):
         print('작업폴더 열기 작업이 수행되었습니다.')
