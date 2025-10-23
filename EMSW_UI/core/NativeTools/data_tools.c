@@ -3,6 +3,18 @@
 
 #include"data_tools.h"
 
+
+// global System event static value
+static sequeue* s_queue;
+
+// create System Queue
+static void createSystemEvent() {
+    if (s_queue == NULL) {
+        s_queue = (sequeue*)malloc(sizeof(sequeue));
+    }
+}
+
+
 // shift_pos_right
 void left_pos(list* node) {
     if (node->pos == 1) {
@@ -193,12 +205,12 @@ __declspec(dllexport) list* appendForward(list* n, stack* data) {
         list* tmp = (list*)malloc(sizeof(list));
         tmp->left = n;
         tmp->right = n;
-        n->left = tmp
+        n->left = tmp;
         n->right = tmp;
         return tmp;
     }
     list* tmp = (list*)malloc(sizeof(list));
-    tmp->left = n->left
+    tmp->left = n->left;
     n->left->right = tmp;
     tmp->right = n;
     n->left = tmp;
@@ -296,4 +308,88 @@ __declspec(dllexport) void freeList(list* n) {
     if (tmp) tmp->right = NULL;
     free(n);
     freeList(tmp);
+}
+__declspec(dllexport) int StartSystemQueue() {
+    if (s_queue == NULL) {
+        createSystemEvent();
+    }
+    return s_queue == NULL ? 1:-1;
+}
+int appendMSG(sequeue* node, int SysMSG) {
+    if (node->node == NULL) {
+        node->node = (sequeue*)malloc(sizeof(SysMSG));
+        node->node->event = SysMSG;
+        return 0;
+    } else {
+        return appendMSG(node->node, SysMSG);
+    }
+    return -1;
+}
+__declspec(dllexport) int appendSystemMSG(int SysMSG) {
+    if (s_queue == NULL) {
+        createSystemEvent();
+        s_queue->event = SysMSG;
+        return 0;
+    } else if (s_queue->node != NULL) {
+        s_queue->node = (sequeue*) malloc(sizeof(sequeue));
+        s_queue->node->event = SysMSG;
+        return 0;
+    } else {
+        return appendMSG(s_queue->node, SysMSG);
+    }
+    return -1;
+}
+__declspec(dllexport) int getSystemMSG() {
+    if (s_queue == NULL) {
+        createSystemEvent();
+        return START_SYS;
+    } else if (s_queue->event < 0xf220 && 0xf223 < s_queue->event) {
+        return ERROR_SYSTEM_QUEUE;
+    } else if (0xf21f < s_queue->event && s_queue->event < 0xf224) {
+        int d = s_queue->event;
+        sequeue* tmp = s_queue;
+        s_queue = tmp->node;
+        free(tmp);
+        return d;
+    } else {
+        return ERROR_SYSTEM_QUEUE;
+    }
+}
+__declspec(dllexport) int NullSystemQueue() {
+    return (s_queue == NULL)?1:0;
+}
+int appendS_Time(ULONGLONG time, sequeue* node) {
+    if (node == NULL) return -1;
+    else if (node->node == NULL) {
+        if (node->event == KEY_SYS) {
+            node->node = (sequeue*)malloc(sizeof(sequeue));
+            node->node->event = TIME_SYS;
+            node->node->current_ms = time;
+        }
+        return 0;
+    }
+
+    return -2;
+}
+__declspec(dllexport) int appendSystemTime(ULONGLONG time) {
+    if (s_queue == NULL) return -1;
+    else if (s_queue->node == NULL) {
+        if (s_queue->event == KEY_SYS) {
+            s_queue->node = (sequeue*)malloc(sizeof(sequeue));
+            s_queue->node->event = TIME_SYS;
+            s_queue->node->current_ms = time;
+            return 0;
+        }
+        else return -1;
+    } else if (s_queue->node != NULL) {
+        if (s_queue->node->event == KEY_SYS) {
+            s_queue->node->node = (sequeue*)malloc(sizeof(sequeue));
+            s_queue->node->node->event = TIME_SYS;
+            s_queue->node->node->current_ms = time;
+            return 0;
+        } else {
+            return appendS_Time(time, s_queue->node->node);
+        }
+    }
+    return -2;
 }

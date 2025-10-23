@@ -172,6 +172,21 @@ class conf:
     # 포지션을 확인하는 메소드
     def getPosition(self):
         return self.windows_config['windows_pos_x'], self.windows_config['windows_pos_y']
+    # windows_config 태그를 체크하는 메소드
+    def checkTag(self, key:str, data):
+        tags = self.windows_config.keys()
+        if key not in tags:
+            self.windows_config[key] = data
+            return True
+        else:
+            return False
+    # windows_config 태그 키를 통해서 데이터를 반환하는 메소드
+    def getValueToTag(self, key:str):
+        tags = self.windows_config.keys()
+        if key not in tags:
+            return None
+        else:
+            return self.windows_config[key]
     # 객체가 삭제될 때 최종적으로 호출하는 메소드
     def __del__(self):
         if self.updated and (not self.openError) and platform.system() == 'Darwin':

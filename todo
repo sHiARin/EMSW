@@ -73,6 +73,12 @@ PySide6의 입력 감지가 아닌, pynput의 keyboard input signal을 통해 �
 
 픽스할 과제 : mac과 windows의 불일치 문제는 지속적으로 추적하여 보고해야 함.
 
+2025-10-22일 기준 완수 과제, 진행 과제, 픽스할 과제는
+
+완수된 과제 : TreeView (main View)
+완수할 과제 : WikiTree View를 여는 과제.
+            작업 시간을 측정하는 Timer 뷰 (이때, Timer View는 C언어로 동작하도록 할 것.)
+
 (이후 목표)
 WikiTree View를 만들기. 여기서 WikiTree View는 'WikiTree'와 유사한 형태의 형식이라는 것임.
 WikiTree View와 Documents View 모두 HWPX 또는 HWP, DOXC로 출력할 수 있도록 개발.
