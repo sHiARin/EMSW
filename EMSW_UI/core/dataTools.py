@@ -1,7 +1,19 @@
 from ctypes import WinDLL, c_wchar_p, POINTER, Structure, c_int, c_bool
 
-#DLL 로드
+# SYSTEM 상수 값
+class SystemVal:
+    def __init__(self):
+        self.START_SYS = 0xf220
+        self.DURING_SYS = 0xf221
+        self.PRESSED_SYS = 0xf222
+        self.FINISH_SYS = 0xf223
+        self.KEY_SYS = 0xf330
+        self.TIME_SYS = 0xf331
+        self.ERROR_SYSTEM_QUEUE = 0xffff
+        self.NULL_QUE_ERR = 0xfffe
+        self.SUCESS = 0xfffd
 
+#DLL 로드
 class Stack(Structure):
     pass
     
@@ -336,4 +348,24 @@ class StackList(NativeTools):
             return 0
         else:
             return -1
-        
+class keyboardEvent(SystemVal):
+    def __init__(self):
+        super().__init__()
+        self.dll = WinDLL(r"D:\Project\EMSW(Echo Mind SubWriter)\EMSW_UI\core\NativeTools\libDataTools.dll")
+        self.__start__()
+    def __start__(self):
+        self.dll.SetStartMSG.restype = c_int
+        if self.__start_queue__() == -1:
+            self.Queue = False
+        else:
+            val = self.dll.SetStartMSG()
+            if val == self.SUCESS:
+                self.Queue = True
+            else:
+                self.Queue = False
+    def __start_queue__(self):
+        self.dll.StartSystemQueue.restype = c_int
+        return self.dll.StartSystemQueue()
+    def __len__(self):
+        self.dll.GetLength.restype = c_int
+        return self.dll.GetLength()

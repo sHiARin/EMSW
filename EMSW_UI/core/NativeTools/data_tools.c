@@ -3,9 +3,13 @@
 
 #include"data_tools.h"
 
-
 // global System event static value
 static sequeue* s_queue;
+// global Forward Windows Title, Windows PID
+static WIN_DATA* winData;
+
+// global keyboard Hook Handle
+HHOOK g_hKeyboardHook;
 
 // create System Queue
 static void createSystemEvent() {
@@ -13,7 +17,6 @@ static void createSystemEvent() {
         s_queue = (sequeue*)malloc(sizeof(sequeue));
     }
 }
-
 
 // shift_pos_right
 void left_pos(list* node) {
@@ -310,10 +313,20 @@ __declspec(dllexport) void freeList(list* n) {
     freeList(tmp);
 }
 __declspec(dllexport) int StartSystemQueue() {
+    if (winData == NULL) {
+        winData = (WIN_DATA*)malloc(sizeof(WIN_DATA));
+        winData->pid = 0;
+        winData->title = L"";
+    }
+    if (winData == NULL) {
+        return NULL_QUE_ERR;
+    } else if (winData != NULL) {
+        return SUCESS;
+    }
     if (s_queue == NULL) {
         createSystemEvent();
     }
-    return s_queue == NULL ? 1:-1;
+    return s_queue == NULL ? -1:1;
 }
 int appendMSG(sequeue* node, int SysMSG) {
     if (node->node == NULL) {
@@ -392,4 +405,28 @@ __declspec(dllexport) int appendSystemTime(ULONGLONG time) {
         }
     }
     return -2;
+}
+__declspec(dllexport) int SetStartMSG() {
+    if (s_queue == NULL) return ERROR_SYSTEM_QUEUE;
+    else if (s_queue != NULL) {
+        s_queue->event = START_SYS;
+        s_queue->node = NULL;
+        return SUCESS;
+    }
+    else {
+        return ERROR_SYSTEM_QUEUE;
+    }
+}
+__declspec(dllexport) int GetLength() {
+    if (s_queue == NULL) return 0;
+    else if (s_queue != NULL) {
+        SE_Queue *tmp = s_queue;
+        int len = 0;
+        do {
+            len = 1;
+            tmp = tmp->node;
+        } while(tmp != NULL);
+        return len;
+    }
+    return -1;
 }
