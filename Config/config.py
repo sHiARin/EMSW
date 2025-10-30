@@ -1,5 +1,6 @@
 import json, os, platform
 
+# 프로그램 config 파일을 읽어오는 클래스
 class conf:
     def __init__(self):
         self.updated = False
@@ -201,3 +202,28 @@ class conf:
                 json.dump(self.windows_config, file)
             with open('./data/ProjectDirectories_win.json', 'w', encoding='utf-8') as file:
                 json.dump(self.programe_data, file)
+#프로젝트의 Config를 읽어오는 클래스
+class ProjectConfig:
+    def __init__(self, config_dir:str, open_dir:str):
+        self.update_dir = False
+        self.root_dir = config_dir
+        self.opened_title = open_dir
+        self.__start__()
+    def __start__(self):
+        self.__check__()
+    def __check__(self):
+        if 'programeData.json' not in os.listdir(self.root_dir):
+            self.Create_Files()
+    def Create_Files(self):
+        File_Tag = {}
+        File_Tag['title'] = self.root_dir.split('/')[-1]
+        File_Tag['opened_Window'] = []
+        groups = []
+        for f in os.listdir(self.root_dir):
+            if os.path.isdir(f"{self.root_dir}/{f}"):
+                groups.append(f)
+                File_Tag[f] = os.listdir(f"{self.root_dir}/{f}")
+        File_Tag['groups'] = groups
+        print(self.root_dir)
+        print(self.opened_title)
+        print(File_Tag)

@@ -8,11 +8,11 @@ from PySide6.QtGui import (QKeyEvent, QAction, QStandardItemModel,
 from PySide6.QtCore import (Qt, Signal, QTimer,
                             QModelIndex)
 from enum import Enum, unique
-import hashlib
+import xml.etree.ElementTree as ET
 
-from Config.config import conf
+from Config.config import conf, ProjectConfig
 
-import os, json, platform
+import os, json, platform, hashlib
 
 # 메인 메뉴의 액션을 구분하기 위한 전용 클래스
 @unique
@@ -468,16 +468,23 @@ class EMSWTreeView(QWidget):
             self.DocumentDir.emit(self.root)
             self.document_dir = self.root
         else:
-            self.DocumentDir.emit(f"{self.root}/{index.data()}")
-            self.document_dir = f"{self.root}/{index.data()}"
-            self.selectDir = index.data()
+            if os.path.exists(f"{self.root}/{index.data()}"):
+                self.DocumentDir.emit(f"{self.root}/{index.data()}")
+                self.document_dir = f"{self.root}/{index.data()}"
+                self.selectDir = index.data()
+            elif os.path.exists(f"{self.document_dir}/{index.data()}"):
+                self.DocumentDir.emit(f"{self.document_dir}/{index.data()}")
+                self.document_dir = f"{self.document_dir}/{index.data()}"
+                self.selectDir = index.data()
+            else:
+                print(index.data())
         #print(self.document_dir)
         self.Action_Type.emit(ProgrameAction.SelectTreeView)
     def makeGroup(self):
         print(self.root)
         title = self.root.split('/')[-1]
         path = f"{self.root}/{title}.json"
-        text, ok = QInputDialog.getText(None, '새 소설의 이름을 지정해주세요.', '소설 이름을 입력하세요.')
+        text, ok = QInputDialog.getText(None, '새 그룹의 이름을 지정해주세요.', '그룹 이름을 입력하세요.')
         print(os.listdir(self.root))
         if os.path.isfile(path):
             if ok:
@@ -513,17 +520,44 @@ class EMSWTreeView(QWidget):
             pass
         self.Action_Type.emit(ProgrameAction.ProjectCreateSuccess)
     def newPage(self):
-        print(self.selectDir)
-        text, ok = QInputDialog.getText(None, '새 페이지의 이름을 입력해 주세요', '새 페이지')
+        text, ok = QInputDialog.getText(None, '새 페이지의 이름을 입력해 주세요.', '새 페이지')
         if not os.path.isdir(self.document_dir):
             print(self.root)
             print(self.document_dir)
         elif ok:
             if 0 < self.document_dir.__len__() and not (text in os.listdir(f'{self.document_dir}')):
                 dir = f'{self.document_dir}'
+                print(dir)
                 open(f'{dir}/{text}', 'w', encoding='utf-8').writelines('')
                 self.UpdateTree()
             elif text in os.listdir(f'{self.document_dir}'):
+                QMessageBox.information(self, '경고', '파일 이름이 중복입니다.', QMessageBox.StandardButton.Ok)
+            else:
+                QMessageBox.information(self, '취소', '페이지 생성을 취소하였습니다.', QMessageBox.StandardButton.Ok)
+    def makeWikiFile(self, title:str):
+        if self.document_dir == self.root:
+            print('루트 directory에는 생성할 수 없습니다.')
+        elif 'Wiki' not in os.listdir(self.document_dir):
+            print(f'위키 디렉토리가 생성됩니다.')
+            os.mkdir(f'{self.document_dir}/Wiki')
+            data = {}
+            self.UpdateTree()
+        else:
+            pass
+        if 'Wiki' == self.document_dir.split('/')[-1]:
+            print(f"{self.document_dir}/{title}.wiki")
+        elif title not in os.listdir(f'{self.document_dir}/Wiki'):
+            print(f"{self.document_dir}/{title}.wiki")
+    def newWiki(self):
+        text, ok = QInputDialog.getText(None, "새 위키의 이름을 입력해 주세요.", "새 위키 문서")
+        if not os.path.isdir(self.document_dir):
+            print(self.root)
+            print(self.document_dir)
+        elif ok:
+            if 0 < self.document_dir.__len__() and not (f'{text}.wiki' in os.listdir(self.document_dir)):
+                print('파일이 생성되었습니다.')
+                self.makeWikiFile(text)
+            elif f'{text}.wiki' in os.listdir(self.document_dir):
                 QMessageBox.information(self, '경고', '파일 이름이 중복입니다.', QMessageBox.StandardButton.Ok)
             else:
                 QMessageBox.information(self, '취소', '페이지 생성을 취소하였습니다.', QMessageBox.StandardButton.Ok)
@@ -552,37 +586,34 @@ class EMSWTreeView(QWidget):
                 self.Action_Type.connect(ProgrameAction.FailedTreeViewUpdate)
         except FileNotFoundError:
             pass
-    def OpenEditWindows(self):
-        title = self.document_dir.split('/')[-1]
-        encoding = title.encode()
-        hash = hashlib.sha256()
-        hash.update(encoding)
-        code = hash.hexdigest()
-        if self.windowData:
-            if code not in self.windowData.ShowEditWindowsCode() and os.path.isfile(f"{self.document_dir}.txt"):
-                x, y = self.config.getPosition()
-                print(x, y)
-                self.windowData.appendEditWindowsSize(code, x, y, 100, 100)
-            elif not os.path.isdir(self.document_dir):
-                print(3)
-                print('Can not Opend Directories')
-                print(self.selectDir)
-            elif os.path.isdir(self.document_dir):
-                os.listdir(self.document_dir)
-                print(4)
-                return
+    def OpenEditWindows(self, index:QModelIndex):
+        child_index = index
+        child_text = child_index.data()
+        parents_index = child_index.parent()
+        if parents_index.isValid():
+            parents_text = parents_index.data()
+            if parents_text != self.root.split('/')[-1]:
+                self.document_dir = f'{self.root}/{parents_text}/{child_text}'
+            else:
+                self.document_dir = f'{self.root}/{child_text}'
+            self.DocumentDir.emit(self.document_dir)
+        else:
+            self.document_dir = self.root
+            self.DocumentDir.emit(self.document_dir)
     def init_ui(self):
         if not self.blakTr:
-            print("TR 1")
             vlayout = QVBoxLayout()
             vlayout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            new_novel = QPushButton('새 소설')
+            new_novel = QPushButton('새 그룹')
             new_novel.clicked.connect(self.makeGroup)
             new_page = QPushButton('새 페이지')
             new_page.clicked.connect(self.newPage)
+            new_wiki = QPushButton('새 위키')
+            new_wiki.clicked.connect(self.newWiki)
             menuView = QHBoxLayout()
             menuView.addWidget(new_novel)
             menuView.addWidget(new_page)
+            menuView.addWidget(new_wiki)
             self.treeView.setModel(self.model)
             selection_model = self.treeView.selectionModel()
             selection_model.currentChanged.connect(self.selectGroupDir)
@@ -591,7 +622,6 @@ class EMSWTreeView(QWidget):
             vlayout.addWidget(self.treeView)
             self.setLayout(vlayout)
         else:
-            print("TR 2")
             vlayout = QVBoxLayout()
             vlayout.setAlignment(Qt.AlignmentFlag.AlignTop)
             new_novel = QPushButton('새 프로젝트')

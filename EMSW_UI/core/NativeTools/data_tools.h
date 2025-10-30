@@ -34,6 +34,13 @@ struct WindowData {
     int pid;
     wchar_t* title;
 }typedef WIN_DATA;
+// C main Programe Data
+struct ProgrameData {
+    int sleepTime;          // Thread sleep Time
+    SE_Queue* s_queue;      // global system event queue
+    WIN_DATA* winData;      // global Forward Windows Title, Windows PID
+    volatile bool key_lis;  // global keyboard Event Listener
+}typedef PD;
 
 // System Data Type define
 #define STACK_H
@@ -55,6 +62,8 @@ struct WindowData {
 #define NULL_QUE_ERR 0xfffe         // Null Queue error
 #define SUCESS 0xfffd               // Sucess function
 #define CONTINUE 0xfffc             // Continue function
+#define ERROR_SYSTEM_UNKNOWN 0xfffb // Unknown error
+#define ERROR_SYSTEM_NULL 0xfffa    // Main System Memory is NULL
 
 __declspec(dllexport) stack* makeStack();                                                       // make stack for memory
 __declspec(dllexport) stack* push(stack* st, wchar_t* txt);                                     // stack data push
@@ -79,8 +88,9 @@ __declspec(dllexport) bool rightNone(list* n);                                  
 __declspec(dllexport) bool posCheck(list* n, int pos);                                          // node pos check
 __declspec(dllexport) int appendLeft(list* left, stack* data, int pos);                         // append data left search
 __declspec(dllexport) int appendRight(list* right, stack* data, int pos);                       // append data right search
+__declspec(dllexport) int SetMainSystem();                                                      // set Global System Data
 __declspec(dllexport) int StartSystemQueue();                                                   // Create Sytem Queue
-__declspec(dllexport) int SetStartMSG();                                                       // Set Start Message
+__declspec(dllexport) int SetStartMSG();                                                        // Set Start Message
 __declspec(dllexport) int appendSystemMSG(int SysMSG);                                          // append System MSG
 __declspec(dllexport) int appendSystemTime(ULONGLONG time);                                     // append SystemQueue to time MSG
 __declspec(dllexport) int getSystemMSG();                                                       // append System MSG

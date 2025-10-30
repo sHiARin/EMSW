@@ -3,13 +3,18 @@
 
 #include"data_tools.h"
 
+static PD* programeMain;
+
 // global System event static value
 static sequeue* s_queue;
 // global Forward Windows Title, Windows PID
 static WIN_DATA* winData;
-
-// global keyboard Hook Handle
-HHOOK g_hKeyboardHook;
+// global Thread Control value
+volatile bool running = false;
+// background thread handle
+HANDLE g_hThread = NULL;
+// mutex
+HANDLE g_hMutex = NULL;
 
 // create System Queue
 static void createSystemEvent() {
@@ -352,6 +357,19 @@ __declspec(dllexport) int appendSystemMSG(int SysMSG) {
     }
     return -1;
 }
+__declspec(dllexport) int SetMainSystem() {
+    int res;
+    if (programeMain == NULL) {
+        programeMain = (PD*)malloc(sizeof(PD));
+        if (programeMain == NULL) return ERROR_SYSTEM_NULL;
+        else if (programeMain != NULL) res = SUCESS;
+        else return ERROR_SYSTEM_UNKNOWN;
+    }
+    else if (ProgrameMain != NULL) res = SUCESS;
+    else return ERROR_SYSTEM_UNKNOWN;
+
+    if (res == SUCESS) programeMain.sleepTime = 10;
+}
 __declspec(dllexport) int getSystemMSG() {
     if (s_queue == NULL) {
         createSystemEvent();
@@ -429,4 +447,74 @@ __declspec(dllexport) int GetLength() {
         return len;
     }
     return -1;
+}
+__declspec(dllexport) wchar_t* GetFocusTitle() {
+    if (winData != NULL)
+        return winData->title;
+    else {
+        return NULL;
+    }
+}
+__declspec(dllexport) int GetFocusPID() {
+    if (winData != NULL) {
+        return winData->pid;
+    } else {
+        return NULL;
+    }
+}
+__declspec(dllexport) int SetFocusedTitle(wchar_t* title) {
+    if (winData == NULL) return NULL_QUE_ERR;
+    else if (winData != NULL) {
+        if (winData->title == title) return SUCESS;
+        else {
+            winData->title = title;
+            return SUCESS;
+        }
+    }
+    return ERROR_SYSTEM_UNKNOWN;
+}
+__declspec(dllexport) int SetFocusedPID(int pid) {
+    if (winData == NULL) return NULL_QUE_ERR;
+    else if (winData != NULL) {
+        if (winData->pid == pid) return SUCESS;
+        else {
+            winData->pid = pid;
+            return SUCESS;
+        }
+    }
+    return ERROR_SYSTEM_UNKNOWN;
+}
+void GetForgroundWindowInfo() {
+    HWND hwndForeground = GetForegroundWindow();
+
+    if (hwndForeground == NULL) {
+        winData->pid = 0;
+        winData->title = "";
+        return;
+    }
+    DWORD dwProcessID = 0;
+    GetWindowThreadProcessId(hwndForeground, &dwProcessId);
+
+    char szTitle[1024];
+    int length = GetWindowTextA(hwndForeground, szTitle, 1024);
+    
+    if (length == 0) {
+        snprintf(szTitle, 1024, "(제목 없음 또는 시스템 창)");
+    }
+
+    winData->pid = dwProcessID;
+    winData->title = szTitle;
+}
+DWORD WINAPI GetFocuseProgrameInfo(LPVOID lpParam) {
+    while (running) {
+        GetForegroundWindowInfo();
+        Sleep(programeMain->sleepTime);
+    }
+    return SUCESS;
+}
+
+BOOL APIENTRY DllMain(HINSTANCE hinstance, DWORD fdwReason, LPVOID lpReserved) {
+    if (fdwReason == DLL_PROCESS_DETACH) {
+        if (g_hMutex)
+    }
 }
