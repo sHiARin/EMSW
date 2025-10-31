@@ -1,17 +1,15 @@
-from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget)
+from PySide6.QtWidgets import (QMainWindow, QWidget)
 
-from Config.config import conf
-
-import sys
-
+from Config.config import ProjectConfig
 
 
 class WikiView(QMainWindow):
-    def __init__(self, config:conf, name : str):
+    def __init__(self, config:ProjectConfig, name : str):
         super().__init__()
         self.config = config
         self.title = name
         self.__start__()
+        self.__init__UI(self)
     def __checkingTag__(self):
         self.config.checkTag('Wiki Title', self.title)
         self.config.checkTag('Wiki width Size', 600)

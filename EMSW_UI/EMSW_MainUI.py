@@ -93,113 +93,6 @@ def CheckProgrameSignal(signal:int):
         print("TreeView 선택 항목이 변경되었습니다.")
     elif signal == ProgrameAction.FinishedTreeViewWork:
         print("TreeView의 작업이 완료되었습니다.")
-# ProgrameUIData를 관리하기 위한 클래스
-# programeUIData는 기본적으로 열린 Project의 설정창을 참고하게 되므로, ProjectDir이 설정이 되어야 한다.
-class ProgrameWindowData:
-    def __init__(self, ProjectDir:str, config:conf):
-        self.config = config
-        self.RunFalse = False
-        if ProjectDir == 'blank':
-            self.ProjectDir = ''
-        else:
-            self.ProjectDir = ProjectDir
-        self.data = {}
-        if self.ProjectDir != '':
-            if platform.system() == "Windows":
-                if os.path.isfile(f"{self.ProjectDir}/project_data_win.json"):
-                    with open(f"{self.ProjectDir}/project_data_win.json", mode='r', encoding='utf-8') as file:
-                        self.data = json.load(file)
-                    keys = ['WindowCode', 'editWindowsXPos', 'eidtWindowsYPos', 'editWindowsWidth', 'editWindowsHeight', 'OpenedWindowsCode']
-                    for k in keys:
-                        if k not in self.data.keys():
-                            self.checkFiles()
-                            break
-                else:
-                    self.checkFiles()
-                    try:
-                        with open(f"{self.ProjectDir}/project_data_win.json", mode='r', encoding='utf-8') as file:
-                            self.data = json.dump(file)
-                    except FileNotFoundError as e:
-                        self.RunFalse = True
-            elif platform.system() == "Darwin":
-                if os.path.isfile(f"{self.ProjectDir}/project_data_mac.json"):
-                    with open(f"{self.ProjectDir}/project_data_win.json", mode='r', encoding='utf-8') as file:
-                        self.data = json.load(file)
-                    keys = ['WindowCode', 'editWindowsXPos', 'eidtWindowsYPos', 'editWindowsWidth', 'editWindowsHeight', 'OpenedWindowsCode']
-                    for k in keys:
-                        if k not in self.data.keys():
-                            self.checkFiles()
-                            break
-                else:
-                    self.checkFiles()
-                    with open(f"{self.ProjectDir}/project_data_win.json", mode='w', encoding='utf-8') as file:
-                        self.data = json.dump(file)
-        else:
-            return
-    # dataFile이 있는지 체크하는 메소드
-    def checkFiles(self):
-        data = {}
-        data['editWindowsXPos'] = None
-        data['eidtWindowsYPos'] = None
-        data['editWindowsWidth'] = None
-        data['editWindowsHeight'] = None
-        data['OpenedWindowsCode'] = []
-        self.data = data
-    # EditWindowsSize 즉, 더블 클릭으로 연 프로그램 작업 창의 크기를 관리하는 클래스
-    # 검색을 위한 윈도우 코드는 항상 입력해야 한다.
-    # windows 코드는 dict 자료형으로 저장됨
-    def appendEditWindowsSize(self, dataCode:str, posX:int, posY:int, width:int, height:int):
-        if not dataCode in self.data['OpenedWindowsCode']:
-            d = list(self.data['OpenedWindowsCode'])
-            d.append(dataCode)
-            self.data['OpenedWindowsCode'] = d
-        if self.data['editWindowsXPos'] == None:
-            self.data['editWindowsXPos'] = {dataCode:posX}
-        elif self.data['editWindowsXPos'] is dict:
-            self.data['editWindowsXPos'][dataCode] = posX
-        if self.data['eidtWindowsYPos'] is None:
-            self.data['eidtWindowsYPos'] = {dataCode:posY}
-        elif self.data['eidtWindowsYPos'] is dict:
-            self.data['eidtWindowsYPos'][dataCode] = posY
-        if self.data['editWindowsWidth'] is None:
-            self.data['editWindowsWidth'] = {dataCode:width}
-        elif self.data['editWindowsWidth'] is dict:
-            self.data['editWindowsWidth'][dataCode] = width
-        if self.data['editWindowsHeight'] is None:
-            self.data['editWindowsHeight'] = {dataCode:height}
-        elif self.data['editWindowsHeight'] is dict:
-            self.data['editWindowsHeight'][dataCode] = height
-    # EditWindowCode가 존재하는지 검색하고, 없으면 새로 만듦. 만들때는 Windows의 사이즈를 받아와 만듬.
-    # WindowsHeight는 Main Windows의 위치로 상대값으로 계산된다.
-    # WindowsCode는 이름을 sha256으로 윈도우의 title을 만들어서 만듦.
-    def EditWindowCodeCheck(self, windowsCode:str, xPos:int, yPos:int):
-        tmp = list(self.data['OpenedWindowsCode'])
-        wd = {}
-        if windowsCode in tmp:
-            wd['xPos'] = xPos + self.data['EditPosX'][windowsCode]
-            wd['yPos'] = yPos + self.data['EditPosY'][windowsCode]
-            wd['width'] = self.data['EditWidth']
-            wd['hieght'] = self.data['height']
-            return wd
-        if windowsCode not in tmp:
-            self.appendEditWindowsSize(windowsCode, 100, 100, 300, 300)
-            wd['xPos'] = xPos + self.data['EditPosX'][windowsCode]
-            wd['yPos'] = yPos + self.data['EditPosY'][windowsCode]
-            wd['width'] = self.data['EditWidth']
-            wd['hieght'] = self.data['height']
-            return wd
-    def ShowEditWindowsCode(self):
-        if 'OpenedWindowsCode' in self.data.keys():
-            return self.data['OpenedWindowsCode']
-        else:
-            self.data['OpenedWindowsCode'] = []
-            return self.data['OpenedWindowsCode']
-    def __del__(self):
-        if os.path.isdir(self.ProjectDir) and self.ProjectDir != '~/Documents' and self.ProjectDir != r'C:\\Users' and self.ProjectDir == '':
-            print(self.ProjectDir)
-        elif platform.system() != 'Darwin':
-            with open(f"{self.ProjectDir}/programeWindows.json", 'w', encoding='utf-8') as file:
-                json.dump(self.data, file)
 # 프로젝트를 열기 위한 클래스
 class OpenProject(QDialog):
     Project_dir = Signal(str)
@@ -397,7 +290,7 @@ class EMSWTreeView(QWidget):
             self.__start__()
             self.treeView.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
             self.init_ui()
-        elif root_dir == r"C:\User" and root_dir == '' and "~/Documents":
+        elif root_dir == r"C:\User" or root_dir == '' or "~/Documents":
             self.root = 'blank'
             self.child = []
             self.treeView = QTreeView(self)
@@ -408,9 +301,8 @@ class EMSWTreeView(QWidget):
     def __start__(self):
         self.novels = []
         self.selectDir = None
+        self.ProjectConf = ProjectConfig(self.root)
         print(self.root)
-        if self.root != 'balnk' or self.root != None:
-            self.windowData = ProgrameWindowData(self.root, self.config)
         if 0 < len(self.root):
             self.root_name = self.root.split('/')[-1]
             self.makeTree()
@@ -544,10 +436,8 @@ class EMSWTreeView(QWidget):
             self.UpdateTree()
         else:
             pass
-        if 'Wiki' == self.document_dir.split('/')[-1]:
-            print(f"{self.document_dir}/{title}.wiki")
-        elif title not in os.listdir(f'{self.document_dir}/Wiki'):
-            print(f"{self.document_dir}/{title}.wiki")
+        createDir = f'{self.document_dir}/Wiki/'
+        self.ProjectConf.OpenWindow(createDir, f"{title}.wiki")
     def newWiki(self):
         text, ok = QInputDialog.getText(None, "새 위키의 이름을 입력해 주세요.", "새 위키 문서")
         if not os.path.isdir(self.document_dir):

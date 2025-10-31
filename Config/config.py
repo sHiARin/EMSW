@@ -190,33 +190,43 @@ class conf:
             return self.windows_config[key]
     # 객체가 삭제될 때 최종적으로 호출하는 메소드
     def __del__(self):
-        if self.updated and (not self.openError) and platform.system() == 'Darwin':
+        if self.updated and (not self.openError) and platform.system() == 'Darwin' and self.updated:
             print('Update')
             with open('./data/windows_config_mac.json', 'w', encoding='utf-8') as file:
                 json.dump(self.windows_config, file)
             print(self.windows_config)
             with open('./data/ProjectDirectories_mac.json', 'w', encoding='utf-8') as file:
                 json.dump(self.programe_data, file)
-        elif self.updated and (not self.openError) and platform.system() == "Windows":
+        elif self.updated and (not self.openError) and platform.system() == "Windows" and self.updated:
             with open('./data/windows_config_win.json', 'w', encoding='utf-8') as file:
                 json.dump(self.windows_config, file)
             with open('./data/ProjectDirectories_win.json', 'w', encoding='utf-8') as file:
                 json.dump(self.programe_data, file)
 #프로젝트의 Config를 읽어오는 클래스
 class ProjectConfig:
-    def __init__(self, config_dir:str, open_dir:str):
+    def __init__(self, config_dir:str):
         self.update_dir = False
         self.root_dir = config_dir
-        self.opened_title = open_dir
-        self.__start__()
+        self.opened_file = 'programeWindows.json'
+        if not self.__start__():
+            print("can not open windows")
     def __start__(self):
         self.__check__()
+        if self.__open_Check__() == None:
+            print('Can not Open Window')
+            return False
     def __check__(self):
-        if 'programeData.json' not in os.listdir(self.root_dir):
-            self.Create_Files()
-    def Create_Files(self):
+        if platform.system() == 'Windows':
+            if self.opened_file not in os.listdir(self.root_dir):
+                self.WIN_Create_Files()
+            else:
+                self.WIN_Read_Files()
+    def __open_Check__(self):
+        print(type(self.data))
+        return None
+    def WIN_Create_Files(self):
         File_Tag = {}
-        File_Tag['title'] = self.root_dir.split('/')[-1]
+        File_Tag['title'] = self.root_dir.split('\\')[-1]
         File_Tag['opened_Window'] = []
         groups = []
         for f in os.listdir(self.root_dir):
@@ -224,6 +234,19 @@ class ProjectConfig:
                 groups.append(f)
                 File_Tag[f] = os.listdir(f"{self.root_dir}/{f}")
         File_Tag['groups'] = groups
-        print(self.root_dir)
-        print(self.opened_title)
-        print(File_Tag)
+        
+        with open(self.root_dir + '/' + self.opened_file, 'w', encoding='utf-8') as file:
+            json.dump(File_Tag, file)
+        self.data = File_Tag
+    def WIN_Read_Files(self):
+        file_dir = self.root_dir + '/' + self.opened_file
+        if os.path.exists(file_dir):
+            with open(file_dir, 'r', encoding='utf-8') as file:
+                self.data = json.load(file)
+        else:
+            self.WIN_Create_Files()
+            self.WIN_Read_Files()
+    def OpenWindow(self, project_name:str, name:str,):
+        print(project_name)
+        print(name)
+        print(self.data.keys())
