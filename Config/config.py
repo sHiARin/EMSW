@@ -246,7 +246,17 @@ class ProjectConfig:
         else:
             self.WIN_Create_Files()
             self.WIN_Read_Files()
-    def OpenWindow(self, project_name:str, name:str,):
-        print(project_name)
-        print(name)
-        print(self.data.keys())
+    def OpenWindow(self, dir:str,):
+        print(dir)
+        if 'opened_Window' in self.data.keys():
+            opened = self.data['opened_Window']
+            if dir not in opened:
+                self.data['opened_Window'].append(dir)
+                self.update_dir = True
+        else:
+            self.update_dir = False
+        print(self.data)
+    def __del__(self):
+        if self.update_dir:
+            with open(self.root_dir + '/' + self.opened_file, 'w', encoding='utf-8') as file:
+                json.dump(self.data, file)

@@ -426,31 +426,39 @@ class EMSWTreeView(QWidget):
                 QMessageBox.information(self, '경고', '파일 이름이 중복입니다.', QMessageBox.StandardButton.Ok)
             else:
                 QMessageBox.information(self, '취소', '페이지 생성을 취소하였습니다.', QMessageBox.StandardButton.Ok)
+    def CreateWiki(self, dir:str, title:str):
+        data = {}
+        data['title'] = title
+        data['index'] = []
+        data['body'] = {}
+        print(dir)
+        with open(f'{dir}/{title}.wiki', 'w', encoding='utf-8') as file:
+            json.dump(data, file)
     def makeWikiFile(self, title:str):
         if self.document_dir == self.root:
             print('루트 directory에는 생성할 수 없습니다.')
-        elif 'Wiki' not in os.listdir(self.document_dir):
-            print(f'위키 디렉토리가 생성됩니다.')
+        elif 'Wiki' not in os.listdir(self.document_dir) or 'Wiki' not in self.document_dir:
             os.mkdir(f'{self.document_dir}/Wiki')
-            data = {}
-            self.UpdateTree()
-        else:
-            pass
-        createDir = f'{self.document_dir}/Wiki/'
-        self.ProjectConf.OpenWindow(createDir, f"{title}.wiki")
+            createDir = f'{self.document_dir}/Wiki/'
+            self.CreateWiki(createDir)
+        elif 'Wiki' not in self.document_dir:
+            createDir = f'{self.document_dir}/Wiki/'
+            self.CreateWiki(createDir, title)
     def newWiki(self):
         text, ok = QInputDialog.getText(None, "새 위키의 이름을 입력해 주세요.", "새 위키 문서")
-        if not os.path.isdir(self.document_dir):
-            print(self.root)
-            print(self.document_dir)
+        if os.path.isfile(self.document_dir):
+            self.document_dir = f'{'/'.join(self.document_dir.split('/')[0:-1])}/Wiki'
+            self.makeWikiFile()
         elif ok:
             if 0 < self.document_dir.__len__() and not (f'{text}.wiki' in os.listdir(self.document_dir)):
                 print('파일이 생성되었습니다.')
                 self.makeWikiFile(text)
+                
             elif f'{text}.wiki' in os.listdir(self.document_dir):
                 QMessageBox.information(self, '경고', '파일 이름이 중복입니다.', QMessageBox.StandardButton.Ok)
             else:
                 QMessageBox.information(self, '취소', '페이지 생성을 취소하였습니다.', QMessageBox.StandardButton.Ok)
+        self.UpdateTree()
     def UpdateTree(self):
         try:
             ch = [t.split('.')[0] for t in os.listdir(self.document_dir)]
@@ -476,20 +484,32 @@ class EMSWTreeView(QWidget):
                 self.Action_Type.connect(ProgrameAction.FailedTreeViewUpdate)
         except FileNotFoundError:
             pass
-    def OpenEditWindows(self, index:QModelIndex):
+    def OpenWikiFiles(self, dir:str):
+        self.ProjectConf.OpenWindow(dir)
+    def OpenWindows(self, index:QModelIndex):
         child_index = index
         child_text = child_index.data()
         parents_index = child_index.parent()
         if parents_index.isValid():
             parents_text = parents_index.data()
-            if parents_text != self.root.split('/')[-1]:
-                self.document_dir = f'{self.root}/{parents_text}/{child_text}'
-            else:
-                self.document_dir = f'{self.root}/{child_text}'
+            if parents_text not in self.document_dir:
+                self.document_dir = f'{self.document_dir}/{parents_text}/{child_text}'
+            elif parents_text in self.document_dir and child_text not in self.document_dir:
+                self.document_dir = f'{self.document_dir}/{child_text}'
             self.DocumentDir.emit(self.document_dir)
         else:
             self.document_dir = self.root
             self.DocumentDir.emit(self.document_dir)
+        t_dir = self.document_dir.split(child_text)[0]
+        if os.path.exists(t_dir):
+            for t in os.listdir(t_dir):
+                if child_text in t:
+                    if '.wiki' in t:
+                        self.OpenWikiFiles(f"{t_dir}{t}")
+                else:
+                    pass
+        else:
+            print(1)
     def init_ui(self):
         if not self.blakTr:
             vlayout = QVBoxLayout()
@@ -507,7 +527,7 @@ class EMSWTreeView(QWidget):
             self.treeView.setModel(self.model)
             selection_model = self.treeView.selectionModel()
             selection_model.currentChanged.connect(self.selectGroupDir)
-            self.treeView.doubleClicked.connect(self.OpenEditWindows)
+            self.treeView.doubleClicked.connect(self.OpenWindows)
             vlayout.addLayout(menuView)
             vlayout.addWidget(self.treeView)
             self.setLayout(vlayout)
