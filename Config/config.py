@@ -1,4 +1,5 @@
 import json, os, platform
+from enum import Enum, unique
 
 # 프로그램 config 파일을 읽어오는 클래스
 class conf:
@@ -208,6 +209,7 @@ class ProjectConfig:
         self.update_dir = False
         self.root_dir = config_dir
         self.opened_file = 'programeWindows.json'
+        self.can_open = False
         if not self.__start__():
             print("can not open windows")
     def __start__(self):
@@ -246,17 +248,84 @@ class ProjectConfig:
         else:
             self.WIN_Create_Files()
             self.WIN_Read_Files()
-    def OpenWindow(self, dir:str,):
-        print(dir)
+    def OpenWindow(self, dir:str):
         if 'opened_Window' in self.data.keys():
             opened = self.data['opened_Window']
             if dir not in opened:
                 self.data['opened_Window'].append(dir)
                 self.update_dir = True
+                self.can_open = True
+            elif os.path.exists(dir):
+                self.update_dir = False
+                self.can_open = True
         else:
             self.update_dir = False
-        print(self.data)
+            self.can_open = False
+    def getOpenWindow(self):
+        if 'opened_Window' in self.data.keys():
+            return self.data['opened_Window']
+        else:
+            return []
     def __del__(self):
         if self.update_dir:
             with open(self.root_dir + '/' + self.opened_file, 'w', encoding='utf-8') as file:
                 json.dump(self.data, file)
+# 메인 메뉴의 액션을 구분하기 위한 전용 클래스
+@unique
+class ProgrameAction(Enum):
+    ### 프로그램 동작 관련 액션 시그널 ###
+    # 프로그램이 열렸습니다.
+    ProgrameStart = 0x0fff000
+    # 프로그램이 실행중입니다.
+    ProgrameDuring = 0x0fff001
+    # 포커스를 벗어났습니다.
+    ProgrameOut = 0x0fff002
+    # 포커스를 얻었습니다.
+    ProgrameIn = 0x0fff003
+    ### 서브 윈도우 및 기타 메뉴 생성 관련 액션 시그널 ###
+    # 서브 윈도우 창이 열렸습니다.
+    SubWindowsOpened = 0x1fff000
+    # 프로젝트 생성에 성공했습니다.
+    ProjectCreateSuccess = 0x1fff001
+    # 프로젝트 생성에 실패했습니다.
+    ProjectCreateFailed = 0x1fff002
+    # 프로젝트 생성을 취소했습니다.
+    CancleProjectCreate = 0x1fff003
+    # 프로젝트가 열리지 않았습니다.
+    NotOpenedProject = 0x1fff004
+    # 프로젝트 여는 것을 취소했습니다.
+    CancleOpenedProject = 0x1fff005
+    # 프로젝트가 열렸습니다.
+    OpenProjectSuccess = 0x1fff006
+    # 프로젝트 여는 것에 실패했습니다.
+    CannotOpenProject = 0x1fff007
+    # 파일을 생성했습니다.
+    CreateFiles = 0x1fff008
+    # 서브 윈도우가 닫혔습니다.
+    SubWindowsClosed = 0x1fff009
+    # 서브 윈도우에서 벗어났습니다.
+    SubWindowsOut = 0x1fff00a
+    # 서브 윈도우 동작중
+    SubWindowsDuring = 0x1fff00b
+    ### 프로그램 동작 변수 관련 액션 시그널 ###
+    # 프로젝트 경로가 설정되었습니다.
+    SetTheProjectDir = 0x2fff000
+    ### 프로그램 UI 관련 액션 시그널 ###
+    # UI가 업데이트 되었습니다.
+    UpdateUI = 0x3fff001
+    # TreeView가 업데이트 되었습니다.
+    UpdateTreeView = 0x3fff002
+    # TreeView에서 선택이 변경되었습니다.
+    SelectTreeView = 0x3fff003
+    # TreeView의 작업이 완료되었습니다.
+    FinishedTreeViewWork = 0x3fff004
+    # TreeView의 갱신을 실패했습니다.
+    FailedTreeViewUpdate = 0x3fff005
+    # WikiView가 성공적으로 열렸습니다.
+    WikiViewOpenedSuccess = 0x4fff001
+    # WikiView를 여는 것에 실패했습니다.
+    WikiViewOpenedFailed = 0x4fff002
+    # 열린 WikiView를 확인합니다.
+    WikiViewChecked = 0x4fff003
+    # WikiView를 엽니다.
+    WikiViewOpening = 0x4fff004

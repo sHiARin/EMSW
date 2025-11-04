@@ -7,58 +7,11 @@ from PySide6.QtGui import (QKeyEvent, QAction, QStandardItemModel,
                            QStandardItem, QPalette, QColor,)
 from PySide6.QtCore import (Qt, Signal, QTimer,
                             QModelIndex)
-from enum import Enum, unique
-import xml.etree.ElementTree as ET
-
-from Config.config import conf, ProjectConfig
+from Config.config import conf, ProjectConfig, ProgrameAction
+from EMSW_UI.EMSW_EditPage import WikiView
 
 import os, json, platform, hashlib
 
-# 메인 메뉴의 액션을 구분하기 위한 전용 클래스
-@unique
-class ProgrameAction(Enum):
-    ### 프로그램 동작 관련 액션 시그널 ###
-    # 프로그램이 열렸습니다.
-    ProgrameStart = 0x0fff000
-    # 프로그램이 실행중입니다.
-    ProgrameDuring = 0x0fff001
-    # 포커스를 벗어났습니다.
-    ProgrameOut = 0x0fff002
-    # 포커스를 얻었습니다.
-    ProgrameIn = 0x0fff003
-    ### 서브 윈도우 및 기타 메뉴 생성 관련 액션 시그널 ###
-    # 서브 윈도우 창이 열렸습니다.
-    SubWindowsOpened = 0x1fff000
-    # 프로젝트 생성에 성공했습니다.
-    ProjectCreateSuccess = 0x1fff001
-    # 프로젝트 생성에 실패했습니다.
-    ProjectCreateFailed = 0x1fff002
-    # 프로젝트 생성을 취소했습니다.
-    CancleProjectCreate = 0x1fff003
-    # 프로젝트가 열리지 않았습니다.
-    NotOpenedProject = 0x1fff004
-    # 프로젝트 여는 것을 취소했습니다.
-    CancleOpenedProject = 0x1fff005
-    # 프로젝트가 열렸습니다.
-    OpenProjectSuccess = 0x1fff006
-    # 프로젝트 여는 것에 실패했습니다.
-    CannotOpenProject = 0x1fff007
-    # 파일을 생성했습니다.
-    CreateFiles = 0x1fff008
-    ### 프로그램 동작 변수 관련 액션 시그널 ###
-    # 프로젝트 경로가 설정되었습니다.
-    SetTheProjectDir = 0x2fff000
-    ### 프로그램 UI 관련 액션 시그널 ###
-    # UI가 업데이트 되었습니다.
-    UpdateUI = 0x3fff001
-    # TreeView가 업데이트 되었습니다.
-    UpdateTreeView = 0x3fff002
-    # TreeView에서 선택이 변경되었습니다.
-    SelectTreeView = 0x3fff003
-    # TreeView의 작업이 완료되었습니다.
-    FinishedTreeViewWork = 0x3fff004
-    # TreeView의 갱신을 실패했습니다.
-    FailedTreeViewUpdate = 0x3fff005
 # 디버그를 위해 Signal의 종류를 체크하는 함수
 def CheckProgrameSignal(signal:int):
     if signal == ProgrameAction.ProgrameStart:
@@ -275,6 +228,7 @@ class CreateProject(QDialog):
 class EMSWTreeView(QWidget):
     Action_Type = Signal(ProgrameAction)
     DocumentDir = Signal(str)
+    WikiViewDir = Signal(list)
     def __init__(self, root_dir:str, config:conf):
         self.config = config
         super().__init__()
@@ -303,6 +257,7 @@ class EMSWTreeView(QWidget):
         self.selectDir = None
         self.ProjectConf = ProjectConfig(self.root)
         print(self.root)
+        self.fd = True
         if 0 < len(self.root):
             self.root_name = self.root.split('/')[-1]
             self.makeTree()
@@ -481,11 +436,19 @@ class EMSWTreeView(QWidget):
                         if selectModel:
                             selectModel.appendRow(qt)
             else:
-                self.Action_Type.connect(ProgrameAction.FailedTreeViewUpdate)
+                self.Action_Type.emit(ProgrameAction.FailedTreeViewUpdate)
         except FileNotFoundError:
             pass
     def OpenWikiFiles(self, dir:str):
         self.ProjectConf.OpenWindow(dir)
+        if self.ProjectConf.update_dir:
+            self.Action_Type.emit(ProgrameAction.WikiViewOpenedSuccess)
+            self.WikiViewDir.emit(self.ProjectConf.getOpenWindow())
+        if self.ProjectConf.can_open:
+            self.Action_Type.emit(ProgrameAction.WikiViewOpenedSuccess)
+            self.WikiViewDir.emit(self.ProjectConf.getOpenWindow())
+        else:
+            self.Action_Type.emit(ProgrameAction.WikiViewOpenedFailed)
     def OpenWindows(self, index:QModelIndex):
         child_index = index
         child_text = child_index.data()
@@ -509,7 +472,13 @@ class EMSWTreeView(QWidget):
                 else:
                     pass
         else:
-            print(1)
+            print(f'OpenWindows Error! : {t_dir}')
+    def is_diring(self, pd:ProgrameAction):
+        if pd == ProgrameAction.ProgrameDuring:
+            self.Action_Type.emit(ProgrameAction.WikiViewChecked)
+            self.Action_Type.emit(ProgrameAction.WikiViewOpenedSuccess)
+        else:
+            False
     def init_ui(self):
         if not self.blakTr:
             vlayout = QVBoxLayout()
@@ -531,6 +500,14 @@ class EMSWTreeView(QWidget):
             vlayout.addLayout(menuView)
             vlayout.addWidget(self.treeView)
             self.setLayout(vlayout)
+            # 기존에 열린 뷰가 있는지 확인
+            viewDirs = self.ProjectConf.getOpenWindow()
+            # 기존의 열린 뷰가 있고, 사전 작업이 모두 종료된 최초인 것을 확인한다.
+            if 0 < len(viewDirs) and self.fd:
+                if self.Action_Type.connect(self.is_diring):
+                    self.WikiViewDir.emit(viewDirs)
+                    print('OpenWikiView')
+                self.fd = False
         else:
             vlayout = QVBoxLayout()
             vlayout.setAlignment(Qt.AlignmentFlag.AlignTop)
@@ -577,6 +554,9 @@ class EMSW(QMainWindow):
         self.windowSizeHeight = self.config.windows_config['windows_scale_height']
         self.programeInfo = self.config.programe_data['LastOpenDir']
         self.projectList = self.config.programe_data['ProjectDirs']
+        self.ViewNum = 0
+        self.WindowDataFrame = {}
+        self.WikiView = {}
         if not os.path.isdir(self.programeInfo):
             self.dir = ''
         if self.programeInfo == '~/Documents':
@@ -613,14 +593,33 @@ class EMSW(QMainWindow):
             self.trView.Action_Type.connect(self.getProgrameSignal)
             if self.ProgrameSignal == ProgrameAction.SelectTreeView:
                 self.trView.DocumentDir.connect(self.setDocument)
+                self.trView.Action_Type.emit(ProgrameAction.ProgrameDuring)
                 self.ProgrameSignal = ProgrameAction.ProgrameDuring
             elif self.ProgrameSignal == ProgrameAction.UpdateTreeView:
                 print(self.dir)
                 self.trView.setRoot(self.dir)
                 self.trView.resetTree()
+                self.trView.Action_Type.emit(ProgrameAction.SetTheProjectDir)
                 self.ProgrameSignal = ProgrameAction.SetTheProjectDir
             elif self.ProgrameSignal == ProgrameAction.FinishedTreeViewWork:
+                self.trView.Action_Type.emit(ProgrameAction.ProgrameDuring)
                 self.ProgrameSignal = ProgrameAction.ProgrameDuring
+            elif self.ProgrameSignal == ProgrameAction.WikiViewOpenedSuccess:
+                self.trView.WikiViewDir.connect(self.OpenWikiView)
+    # wikiView에서 수신된 WikiView를 관리하는 클래스
+    def OpenWikiView(self, dir:list):
+        print('Print Wiki Files')
+        print(dir)
+        data = {}
+        if 0 < len(dir):
+            for d in dir:
+                name = d.split('/')[-1].split('.')[0]
+                data[name] = d
+                data[d] = name
+                self.ViewNum += 1
+        self.WikiView = data
+        self.ProgrameSignal = ProgrameAction.WikiViewOpening
+        self.trView.Action_Type.emit(ProgrameAction.WikiViewOpening)
     # update에서 가장 빨리 호출되는 메소드.
     # 주로 데이터의 업데이트, 또는 갱신을 담당하는 메소드 또는 함수가 연결된다.
     def __fixed_update__(self):
@@ -648,6 +647,39 @@ class EMSW(QMainWindow):
                 self.ProgrameSignal = ProgrameAction.UpdateUI
         except:
             pass
+        self.CheckWindowsView()
+    # 뷰의 갯수를 체크하는 메소드
+    def CheckView(self):
+        if self.WindowDataFrame:
+            key_list = list(self.WindowDataFrame.keys())
+            for t in key_list:
+                if t in self.WindowDataFrame:
+                    if not self.WindowDataFrame[t].isVisible():
+                        del self.WindowDataFrame[t]
+    def DeleteCheck(self, p_signal:ProgrameAction):
+        if p_signal == ProgrameAction.SubWindowsClosed:
+            self.ProgrameSignal = ProgrameAction.SubWindowsClosed
+    def DeletWindowDict(self, name:str):
+        if name in self.WindowDataFrame.keys():
+            print('key delete')
+            print(f'name : {name}')
+            self.WindowDataFrame.pop(name)
+    # 열어야 할 뷰가 있는 경우, 여기서 확인
+    def CheckWindowsView(self):
+        if self.ProgrameSignal == ProgrameAction.WikiViewOpening:
+            keys = self.WikiView.keys()
+            key = []
+            for k in keys:
+                if '/' not in k:
+                    key.append(k)
+            for k in key:
+                if k not in self.WindowDataFrame.keys():
+                    sub_View = WikiView(self.WikiView[k], key)
+                    sub_View.Action_Type.connect(self.DeleteCheck)
+                    if self.ProgrameSignal == ProgrameAction.SubWindowsClosed:
+                        sub_View.Close_Title.connect(self.DeletWindowDict)
+                    self.WindowDataFrame[k] = sub_View
+            self.ProgrameSignal = ProgrameAction.ProgrameDuring
     # 주기적으로 업데이트되는 메소드. 또한, initUI를 호출하여 주기적으로 프로그램의 UI를 변경한다.
     def __update__(self):
         #모든 update가 동작하기 전, 반드시 실행해야 하는 동작은 여기에 구현
@@ -665,6 +697,7 @@ class EMSW(QMainWindow):
     def __last_update__(self):
         self.LastUpdate()
         self.TreeViewScaleUpdate()
+        self.CheckView()
     # 가장 나중에 업데이트 되는 것. 일반적으로 데이터를 검증하는 작업을 처리한다.
     def LastUpdate(self):
         if self.ProgrameSignal == ProgrameAction.OpenProjectSuccess:

@@ -1,5 +1,4 @@
 from EMSW_UI.EMSW_MainUI import EMSW
-from EMSW_UI.EMSW_EditPage import WikiView
 from Config.config import conf
 from PySide6.QtWidgets import QApplication
 
