@@ -91,6 +91,14 @@ PySide6의 입력 감지가 아닌, pynput의 keyboard input signal을 통해 �
 완수할 과제 : WikiTree View를 여는 과제
             작업 시간을 측정하는 Timer 뷰
 
+2025-11-05
+완수된 과제 : TreeView (main View)
+            WikiTree를 xml -> json 형식으로 저장.
+            WikiTree View를 여는 과제.
+완수할 과제 : WikiTree View를 열고, 편집하는 과제.
+            WikiTree View의 작동이 원활한지 확인하고, 픽스하는 과제.
+            WikiTree View를 편집하는 과제.
+            AI와 대화 내용을 저장하고, 그 대화 내용을 불러오도록 할 과제.
 
 (이후 목표)
 WikiTree View를 만들기. 여기서 WikiTree View는 'WikiTree'와 유사한 형태의 형식이라는 것임.

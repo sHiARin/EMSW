@@ -1,5 +1,5 @@
 from PySide6.QtWidgets import (QMainWindow, QMenuBar, QWidget,
-                               QTreeView)
+                               QTreeView, QHBoxLayout, QVBoxLayout)
 from PySide6.QtCore import (Signal, QTimer)
 from PySide6.QtGui import (QAction)
 from Config.config import ProgrameAction
@@ -7,8 +7,9 @@ from Config.config import ProgrameAction
 import json
 
 class WikiIndex(QWidget):
-    def __init__(self):
-        pass
+    def __init__(self, index:dict):
+        self.index = index
+
     
 class WikiView(QMainWindow):
     Action_Type = Signal(ProgrameAction)
@@ -42,10 +43,13 @@ class WikiView(QMainWindow):
         if 'yPos' not in key:
             self.Update = True
             self.data['yPos'] = 100
-        print(f"x : {self.x()} \ny : {self.y()} \nwidth : {self.width()} \nheight : {self.height()}")
         self.setGeometry(self.data['xPos'], self.data['yPos'], self.data['width'], self.data['height'])
-        self.IndexView = WikiIndex()
+        if 'index' not in self.data.keys():
+            self.data['index'] = []
+        self.IndexView = self.data['index']
+        print(f"x : {self.x()} \ny : {self.y()} \nwidth : {self.width()} \nheight : {self.height()} \nindex : {self.data['index']}")
         self.makeMenu()
+    # 변경된 데이터를 저장하는 메소드
     def Save_Data(self):
         with open(self.dir, 'w', encoding='utf-8') as file:
             json.dump(self.data, file)
@@ -73,9 +77,14 @@ class WikiView(QMainWindow):
         addIndex.triggered.connect(self.AppendIndex)
 
         menu.addAction(addIndex)
+    # index를 추가하는 클래스
     def AppendIndex(self):
         print('Append Index')
     def init_UI(self):
+        
+        if self.IndexView:
+            pass
+
         self.show()
     def focusOutEvent(self, event):
         self.time.stop()
