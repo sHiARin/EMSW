@@ -390,9 +390,12 @@ class EMSWTreeView(QWidget):
         with open(f'{dir}/{title}.wiki', 'w', encoding='utf-8') as file:
             json.dump(data, file)
     def makeWikiFile(self, title:str):
+        print(title)
         if self.document_dir == self.root:
             print('루트 directory에는 생성할 수 없습니다.')
-        elif 'Wiki' not in os.listdir(self.document_dir) or 'Wiki' not in self.document_dir:
+        elif 'Wiki' in self.document_dir:
+            print(f'{self.document_dir}')
+        elif ('Wiki' not in os.listdir(self.document_dir) or 'Wiki' not in self.document_dir) and not os.path.exists(f'{self.document_dir}/Wiki'):
             os.mkdir(f'{self.document_dir}/Wiki')
             createDir = f'{self.document_dir}/Wiki/'
             self.CreateWiki(createDir)
@@ -405,7 +408,7 @@ class EMSWTreeView(QWidget):
             self.document_dir = f'{'/'.join(self.document_dir.split('/')[0:-1])}/Wiki'
             self.makeWikiFile()
         elif ok:
-            if 0 < self.document_dir.__len__() and not (f'{text}.wiki' in os.listdir(self.document_dir)):
+            if 0 < self.document_dir.__len__() and f'{text}.wiki' not in os.listdir(self.document_dir):
                 print('파일이 생성되었습니다.')
                 self.makeWikiFile(text)
                 
@@ -674,7 +677,7 @@ class EMSW(QMainWindow):
                     key.append(k)
             for k in key:
                 if k not in self.WindowDataFrame.keys():
-                    sub_View = WikiView(self.WikiView[k], key)
+                    sub_View = WikiView(self.WikiView[k], k)
                     sub_View.Action_Type.connect(self.DeleteCheck)
                     if self.ProgrameSignal == ProgrameAction.SubWindowsClosed:
                         sub_View.Close_Title.connect(self.DeletWindowDict)
