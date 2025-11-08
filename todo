@@ -99,7 +99,7 @@ PySide6의 입력 감지가 아닌, pynput의 keyboard input signal을 통해 �
             WikiTree View의 작동이 원활한지 확인하고, 픽스하는 과제.
             WikiTree View를 편집하는 과제.
             AI와 대화 내용을 저장하고, 그 대화 내용을 불러오는 과제.
-
+2025-11-09
 완수된 과제 : TreeView (main View)
             WikiTree를 json 형식으로 저장.
             WikiTree View를 여는 과제.
