@@ -282,7 +282,7 @@ class ProgrameAction(Enum):
     ProgrameOut = 0x0fff002
     # 포커스를 얻었습니다.
     ProgrameIn = 0x0fff003
-    ### 서브 윈도우 및 기타 메뉴 생성 관련 액션 시그널 ###
+    ### 서브 윈도우 및 프로그램 동작 변수 관련 액션 시그널 ###
     # 서브 윈도우 창이 열렸습니다.
     SubWindowsOpened = 0x1fff000
     # 프로젝트 생성에 성공했습니다.
@@ -301,31 +301,41 @@ class ProgrameAction(Enum):
     CannotOpenProject = 0x1fff007
     # 파일을 생성했습니다.
     CreateFiles = 0x1fff008
-    # 서브 윈도우가 닫혔습니다.
-    SubWindowsClosed = 0x1fff009
-    # 서브 윈도우에서 벗어났습니다.
-    SubWindowsOut = 0x1fff00a
-    # 서브 윈도우 동작중
-    SubWindowsDuring = 0x1fff00b
-    ### 프로그램 동작 변수 관련 액션 시그널 ###
     # 프로젝트 경로가 설정되었습니다.
-    SetTheProjectDir = 0x2fff000
-    ### 프로그램 UI 관련 액션 시그널 ###
+    SetTheProjectDir = 0x1fff009
     # UI가 업데이트 되었습니다.
-    UpdateUI = 0x3fff001
+    UpdateUI = 0x1fff00a
     # TreeView가 업데이트 되었습니다.
-    UpdateTreeView = 0x3fff002
+    UpdateTreeView = 0x1fff00b
     # TreeView에서 선택이 변경되었습니다.
-    SelectTreeView = 0x3fff003
+    SelectTreeView = 0x1fff00c
     # TreeView의 작업이 완료되었습니다.
-    FinishedTreeViewWork = 0x3fff004
+    FinishedTreeViewWork = 0x1fff00d
     # TreeView의 갱신을 실패했습니다.
-    FailedTreeViewUpdate = 0x3fff005
+    FailedTreeViewUpdate = 0x1fff00e
+    # 서브 윈도우가 닫혔습니다.
+    SubWindowsClosed = 0x1fff00f
+    # 서브 윈도우에서 벗어났습니다.
+    SubWindowsOut = 0x1fff010
+    # 서브 윈도우 동작중
+    SubWindowsDuring = 0x1fff011
     # WikiView가 성공적으로 열렸습니다.
-    WikiViewOpenedSuccess = 0x4fff001
+    WikiViewOpenedSuccess = 0x1fff012
     # WikiView를 여는 것에 실패했습니다.
-    WikiViewOpenedFailed = 0x4fff002
+    WikiViewOpenedFailed = 0x1fff013
     # 열린 WikiView를 확인합니다.
-    WikiViewChecked = 0x4fff003
+    WikiViewChecked = 0x1fff014
     # WikiView를 엽니다.
-    WikiViewOpening = 0x4fff004
+    WikiViewOpening = 0x1fff015
+    # 인덱스가 추가되었습니다.
+    AppendIndex = 0x1fff016
+    # 인덱스가 삭제되었습니다.
+    DeleteIndex = 0x1fff017
+    # 인덱스 내용이 갱신되어, 업데이트가 필요합니다.
+    UpdateWikiData = 0x1fff018
+    # 위키 뷰의 인덱스를 로드합니다.
+    LoadIndex = 0x1fff019
+    # 위키 뷰를 초기화 합니다.
+    UpdateWikiView = 0x1fff01a
+    # 위키 트리 뷰를 초기화 합니다.
+    UpdateWikiTreeView = 0x1fff01b
