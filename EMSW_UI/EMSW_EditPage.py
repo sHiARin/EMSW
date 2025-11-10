@@ -1,40 +1,55 @@
 from PySide6.QtWidgets import (QMainWindow, QMenuBar, QWidget,
                                QTreeView, QHBoxLayout, QVBoxLayout,
-                               QInputDialog, QMessageBox, QLabel)
-from PySide6.QtCore import (Signal, QTimer, Qt)
+                               QInputDialog, QMessageBox, QLabel,
+                               QTextBrowser, QSplitter)
+from PySide6.QtCore import (Signal, QTimer, Qt, QModelIndex)
 from PySide6.QtGui import (QAction, QStandardItemModel, QStandardItem)
-from Config.config import ProgrameAction
+from Config.config import WikiDocuments, ProgrameAction
 
 import json
 
 class WikiIndex(QWidget):
     Action_Type = Signal(ProgrameAction)
-    def __init__(self, index:list, title):
+    def __init__(self, title:str, config:WikiDocuments):
         super().__init__()
-        self.index = index
+        self.config = config
         self.title = title
+        self.model = QStandardItemModel()
         self.CreateWindows()
         self.__init_ui__()
     def CreateWindows(self):
         self.IndexView = QTreeView()
         self.makeIndex()
+    # 목차를 만듭니다.
     def makeIndex(self):
-        parents = self.IndexView.model()
-        if parents is None:
-            parents = QStandardItemModel()
-            for t in self.index:
+        if self.model is not None:
+            self.model.clear() # 기존 모델 초기화
+            parents = QStandardItem(self.title)
+            for t in self.config.getKeys('index'):
                 children = QStandardItem(t)
                 parents.appendRow(children)
-            self.IndexView.setModel(parents)
+            self.model.appendRow(parents)
+            self.IndexView.setModel(self.model)
+            self.IndexView.expandAll()
+    # 목차에 새 항목을 추가하고 모델을 재생성합니다.
     def addIndex(self, new:str):
-        if new not in self.index:
-            self.index.append(new)
+        if new not in self.config.getKeys('index'):
+            self.config.AppendIndex(new)
+            self.resetIndex()
+            self.makeIndex()
+        else:
+            self.resetIndex()
+            self.makeIndex()
+        print('addIndex')
+    # 모델을 초기화 합니다.
+    def resetIndex(self):
+        if self.model:
+            self.model.clear()
     def __init_ui__(self):
         vLayout = QVBoxLayout()
         layout = QHBoxLayout()
         if type(self.IndexView) is QTreeView:
             self.IndexView.setHeaderHidden(True)
-            vLayout.addWidget(QLabel(self.title))
             vLayout.addWidget(self.IndexView)
 
         layout.addLayout(vLayout)
@@ -42,8 +57,8 @@ class WikiIndex(QWidget):
         self.setLayout(layout)
 
 class WikiMainWindow(QWidget):
-    def __init__(self, body:dict):
-        self.body = body
+    def __init__(self, config:WikiDocuments):
+        self.config = config
     
 class WikiView(QMainWindow):
     Action_Type = Signal(ProgrameAction)
@@ -54,72 +69,59 @@ class WikiView(QMainWindow):
         self.dir = dir
         self.title = name
         self.IndexView = None
+        self.config = None
         self.__start__()
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.__update__)
         self.timer.start(16)
+
         self.init_UI()
     def __start__(self):
         self.setWindowTitle(self.title)
         self.Load_Data()
-        self.index = self.data['index']
-        self.IndexView = WikiIndex(self.index, self.title)
+        self.IndexView = WikiIndex(self.title, self.config)
         self.programeSignal = ProgrameAction.SubWindowsOpened
         self.setWindowTitle(self.title)
 
         self.makeMenu()
     #data를 로드하는 메소드
     def Load_Data(self):
-        with open(self.dir, 'r', encoding='utf-8') as file:
-            self.data = json.load(file)
-        if self.data is None:
-            self.data = {}
-        key = self.data.keys()
-        if 'height' not in key:
-            self.Update = True
-            self.data['height'] = 100
-        if 'width' not in key:
-            self.Update = True
-            self.data['width'] = 100
-        if 'xPos' not in key:
-            self.Update = True
-            self.data['xPos'] = 100
-        if 'yPos' not in key:
-            self.Update = True
-            self.data['yPos'] = 100
-        self.setGeometry(self.data['xPos'], self.data['yPos'], self.data['width'], self.data['height'])
-        if 'index' not in self.data.keys():
-            self.data['index'] = []
-        print(f"x : {self.x()} \ny : {self.y()} \nwidth : {self.width()} \nheight : {self.height()} \nindex : {self.data['index']}")
-
-    # 변경된 데이터를 저장하는 메소드
-    def Save_Data(self):
-        with open(self.dir, 'w', encoding='utf-8') as file:
-            json.dump(self.data, file)
+        if self.config is None:
+            self.config = WikiDocuments(self.dir)
+        
+        self.setGeometry(self.config.getKeys('xPos'), self.config.getKeys['yPos'], self.config.getKeys['width'], self.config.getKeys['height'])
+        print('Load Data')
     def WindowScaleCheck(self):
-        self.data['xPos'] = self.x()
-        self.data['yPos'] = self.y()
-        self.data['width'] = self.width()
-        self.data['height'] = self.height()
-        self.Update = True
+        
+        if self.data['xPos'] != self.x():
+            self.data['xPos'] = self.x()
+            self.Update = True
+        if self.data['yPos'] != self.y():
+            self.data['yPos'] = self.y()
+            self.Update = True
+        if self.data['width'] != self.width():
+            self.data['width'] = self.width()
+            self.Update = True
+        if self.data['height'] != self.height():
+            self.data['height'] = self.height()
+            self.Update = True
     def Action_Progress(self):
-        if self.programeSignal == ProgrameAction.UpdateWikiTreeView:
-            print('Action Progress')
+        if self.programeSignal is ProgrameAction.UpdateWikiTreeView:
             self.Signal_Update(ProgrameAction.UpdateWikiView)
-        elif self.programeSignal == ProgrameAction.UpdateWikiData:
-            self.repaint()
-            self.Signal_Update(ProgrameAction.SubWindowsDuring)
+            print('Action Progress Update Wiki Tree View')
+        elif self.programeSignal is ProgrameAction.UpdateWikiData:
+            self.IndexView.repaint()
+            self.Signal_Update(ProgrameAction.UpdateWikiView)
+            print('Action Progress Update Wiki Data')
     def __fixed_update__(self):
         self.Action_Progress()
         if self.Update:
-            self.Save_Data()
             self.Update = False
     def Update_Action_Progress(self):
         if self.programeSignal is ProgrameAction.UpdateWikiView:
-            self.update()
-            self.repaint()
+            print(self.IndexView.index.__len__() == self.index.__len__())
             self.Signal_Update(ProgrameAction.SubWindowsDuring)
-            print('Update Action Progress')
+            print('Update Action Progress update wiki view')
     def __update__(self):
         self.__fixed_update__()
         self.Update_Action_Progress()
@@ -130,55 +132,72 @@ class WikiView(QMainWindow):
     def Signal_Check(self):
         if self.programeSignal is ProgrameAction.AppendIndex:
             self.Update = True
+            self.Signal_Update(ProgrameAction.UpdateWikiData)
+            print('Signal check Append Index')
     def makeMenu(self):
         Menu = self.menuBar()
         self.editMenuBar(Menu.addMenu('Edit'))
+        print('make Menu')
     # edit Menu를 추가하는 메소드
     def editMenuBar(self, menu:QMenuBar):
         addIndex = QAction('목차 추가', self)
         addIndex.triggered.connect(self.AppendIndex)
 
         menu.addAction(addIndex)
-    # index를 추가하는 클래스
+        print('edit menu bar')
+    # index를 추가하는 메소드
     def AppendIndex(self):
         text, ok = QInputDialog.getText(self, '새 목차', '새 목차를 입력해 주세요')
         if ok:
             l = True
-            for t in self.index:
+            for t in self.data['index']:
                 if t == text:
                     l = False
             if l:
-                self.index.append(text)
+                self.data['index'].append(text)
+                self.update_index()
                 self.IndexView.addIndex(text)
                 self.Signal_Update(ProgrameAction.AppendIndex)
                 QMessageBox.information(self, '확인', '목차가 추가되었습니다.', QMessageBox.StandardButton.Ok)
-        elif text in self.index:
+        elif text in self.data['index']:
             QMessageBox.information(self, '경고', '목차 이름이 중복입니다.', QMessageBox.StandardButton.Ok)
+            print('not append index')
         else:
             QMessageBox.information(self, '경고', '알 수 없는 오류가 발생했습니다.', QMessageBox.StandardButton.Ok)
+            print('programe wrong')
     # Prgraome Signal을 체인지하고, Program Action의 값을 emit하는 메소드
     def Signal_Update(self, signal:ProgrameAction):
         self.programeSignal = signal
         self.Action_Type.emit(signal)
+        print('signal update')
     def init_UI(self):
-        WindowLayout = QHBoxLayout()
-        IndexLayout = QVBoxLayout()
-        print(self.IndexView is not None)
-        if type(self.IndexView) is WikiIndex:
-            IndexLayout.addWidget(self.IndexView)
-        else:
+
+        if self.IndexView is None:
+            QMessageBox.critical(self, '오류', 'UI 위젯 초기화 실패')
             self.Signal_Update(ProgrameAction.UpdateWikiTreeView)
-        WindowLayout.addLayout(IndexLayout)
-        centralWidget = QWidget()
-        centralWidget.setLayout(WindowLayout)
-        self.setCentralWidget(centralWidget)
+            return
+        
+        splitter = QSplitter(Qt.Orientation.Horizontal)
+        splitter.addWidget(self.IndexView)
+
+        splitter.setStretchFactor(0, 1)
+        
+        self.setCentralWidget(splitter)
+        self.IndexView.IndexView.clicked.connect(self.on_index_clicked)
         self.show()
+    def on_index_clicked(self, index:QModelIndex):
+        item = self.IndexView.model.itemFromIndex(index)
+        if item and item.parent(): 
+            page_title = item.text()
+            print(f"Clicked page: {page_title}")
+            self.ContentView.show_page(page_title)
     def focusOutEvent(self, event):
-        self.time.stop()
+        if hasattr(self, 'timer'):
+            self.timer.stop() # <--- [수정] self.time -> self.timer
         return super().focusOutEvent(event)
     def closeEvent(self, event):
-        print(f"x : {self.x()} \ny : {self.y()} \nwidth : {self.width()} \nheight : {self.height()}")
+        print(f"x : {self.x()} \ny : {self.y()} \nwidth : {self.width()} \nheight : {self.height()} \nindex : {self.data['index']} \nbody : {self.data['body']}")
         self.WindowScaleCheck()
         self.Action_Type.emit(ProgrameAction.SubWindowsClosed)
         self.Close_Title.emit(self.title)
-        self.Save_Data()
+        del self.config

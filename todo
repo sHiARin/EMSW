@@ -108,7 +108,17 @@ PySide6의 입력 감지가 아닌, pynput의 keyboard input signal을 통해 �
 지속적인 과제 : WikiTree View를 열고, 편집하는 과제. 
             WikiTree View의 작동이 원활한지 확인하고, 픽스하는 과제.
 
+2025-11-11
+완수된 과제 : TreeView (main View)
+            WikiTree를 json 형식으로 저장.
+            WikiTree View를 여는 과제.
+완수할 과제 : WikiBody View를 여는 과제.
+            AI와 대화 내용을 저장하고, 그 대화 내용을 불러오는 과제.
+지속적인 과제 : WikiTree View를 열고, 편집하는 과제. 
+            WikiTree View의 작동이 원활한지 확인하고, 픽스하는 과제.
+작업중인 과제 : Wiki Data를 전담하여 관리할 WikiDocuments class 제작 중.
+
+
 (이후 목표)
-WikiTree View를 만들기. 여기서 WikiTree View는 'WikiTree'와 유사한 형태의 형식이라는 것임.
-WikiTree View와 Documents View 모두 HWPX 또는 HWP, DOXC로 출력할 수 있도록 개발.
+WikiView를 통해서 AI와의 채팅을 효율적으로 할 수 있도록 지원함.
 프로젝트 내의 전체 문서를 검색할 수 있는 기능을 만들기. 이때, Text를 텐서로 만들어서 텐서 벡터를 검색하도록 만듦.

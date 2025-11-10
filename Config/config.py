@@ -270,6 +270,89 @@ class ProjectConfig:
         if self.update_dir:
             with open(self.root_dir + '/' + self.opened_file, 'w', encoding='utf-8') as file:
                 json.dump(self.data, file)
+# 위키 도큐멘트를 해독하고 저장하며 관리하는 클래스
+class WikiDocuments:
+    def __init__(self, dir:str):
+        self.file_dir = dir
+        self.__start__()
+    def __start__(self):
+        self.OpenFile()
+        self.Check_keys()
+    def Check_keys(self):
+        if 'height' not in self.file_data.keys():
+            self.file_data['height'] = 400
+        if 'width' not in self.file_data.keys():
+            self.file_data['width'] = 500
+        if 'xPos' not in self.file_data.keys():
+            self.file_data['xPos'] = 100
+        if 'yPos' not in self.file_data.keys():
+            self.file_data['yPos'] = 100
+        if 'index' not in self.file_data.keys():
+            self.file_data['index'] = []
+        if 'body' not in self.file_data.keys():
+            self.file_data['body'] = {}
+    def getBody(self, key:str):
+        if key not in self.file_data['body'].keys():
+            return None
+        else:
+            return self.file_data['body'].keys()
+    def keys(self):
+        return self.file_data.keys()
+    def indexs(self):
+        return self.file_data['index']
+    def bodys(self):
+        return self.file_data['body']
+    def getKeys(self, key:str):
+        if key not in self.file_data.keys():
+            return None
+        else:
+            return self.file_data[key]
+    def OpenFile(self):
+        with open(self.file_dir, 'r', encoding='utf-8') as file:
+            self.file_data = json.load(file)
+    def AppendIndex(self, new:str):
+        if type(self.file_data) is dict:
+            if new not in self.file_data['index']:
+                self.file_data['index'].append(new)
+                self.file_data['body'][new] = []
+                self.Save_Data()
+                return True
+            else:
+                return False
+        print(self.file_data)
+        self.Save_Data()
+    def FindBody(self, index:str):
+        return index in self.file_data['body'].keys()
+    def index_len(self):
+        return len(self.file_data['index'])
+    def swap_index(self, i, j):
+        if i <= len(self.file_data['index']) and j <= len(self.file_data['index']):
+            self.file_data['index'][i], self.file_data['index'][j] = self.file_data['index'][j], self.file_data['index'][i]
+            self.Save_Data()
+            return True
+        else:
+            return False
+    def InsertBody(self, index:str, sentence:str, Code:list):
+        print(Code)
+        if index not in self.file_data['index'] or index not in self.file_data['body'].keys():
+            return False
+        else:
+            body = None
+            l = len(self.file_data['body'][index]) + 1
+            if len(Code) == 0:
+                body = f'<text style:nomal,body,10-{l}>{sentence}</text>'
+                self.file_data['body'][index].append(body)
+            else:
+                body = f'<text style:{','.join([c for c in Code])}-{l}>{sentence}</text>'
+            self.file_data['body'][index] = body
+            self.Save_Data()
+            return True
+    def Save_Data(self):
+        with open(self.file_dir, 'w', encoding='utf-8') as file:
+            json.dump(self.file_data, file)
+    def __del__(self):
+        self.Save_Data()
+        print('Wiki Document delete')
 # 메인 메뉴의 액션을 구분하기 위한 전용 클래스
 @unique
 class ProgrameAction(Enum):
