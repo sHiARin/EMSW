@@ -255,7 +255,10 @@ class EMSWTreeView(QWidget):
     def __start__(self):
         self.novels = []
         self.selectDir = None
-        self.ProjectConf = ProjectConfig(self.root)
+        if os.path.exists(self.root):
+            self.ProjectConf = ProjectConfig(self.root)
+        elif not os.path.exists(self.root):
+            self.ProjectConf = ProjectConfig(None)
         print(self.root)
         self.fd = True
         if 0 < len(self.root):
