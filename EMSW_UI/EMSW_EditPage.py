@@ -1,12 +1,15 @@
 from PySide6.QtWidgets import (QMainWindow, QMenuBar, QWidget,
                                QTreeView, QHBoxLayout, QVBoxLayout,
-                               QInputDialog, QMessageBox, QLabel,
-                               QTextBrowser, QSplitter)
+                               QInputDialog, QMessageBox, QSplitter,
+                               QAbstractItemView, QGraphicsScene, QGraphicsView,
+                               )
 from PySide6.QtCore import (Signal, QTimer, Qt, QModelIndex)
-from PySide6.QtGui import (QAction, QStandardItemModel, QStandardItem)
+from PySide6.QtGui import (QAction, QStandardItemModel, QStandardItem,
+                           QPalette, QColor, QFont,
+                           QPen, QBrush, QPainter)
 from Config.config import WikiDocuments, ProgrameAction
 
-import json
+import os
 
 class WikiIndex(QWidget):
     Action_Type = Signal(ProgrameAction)
@@ -31,6 +34,7 @@ class WikiIndex(QWidget):
             self.model.appendRow(parents)
             self.IndexView.setModel(self.model)
             self.IndexView.expandAll()
+            self.IndexView.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
     # 목차에 새 항목을 추가하고 모델을 재생성합니다.
     def addIndex(self, new:str):
         if new not in self.config.getKeys('index'):
@@ -56,20 +60,97 @@ class WikiIndex(QWidget):
         
         self.setLayout(layout)
 
-class WikiMainWindow(QWidget):
-    def __init__(self, config:WikiDocuments):
+"""
+    이 클래스는 QGraphics View를 사용하여 DSL을 랜더링하는 콘탠츠 뷰 위젯이다.
+    데이터는 모두 DocumentsData에서 실시간 관리되며, 창을 닫을 때, DocumentsData에서
+    DocumentView로, 다시 DocumentsView에서 Config의 WikiDocuments로 전달되어 저장된다.
+    또한, 실시간으로 저장되는 시간을 정할 수 있으며, 저장이 되어있지 않은 경우 닫으려고 할 때 저장하시겠습니까?
+    메시지를 띄운다.
+"""
+class DocumentView(QWidget):
+    DEFAULTS = {
+        'box' : {
+            'x' : 10, 'y' : 10, 'w' : 280, 'h' : 480,
+            'bg_color': '#FFFFFF',
+            'pen_color' : '#AAAAAA', #엷은 회색 태두리
+            'font_size': 10, 'font_wight': 'normal', 'font_family':'Arial'
+        },
+        'note' : {
+            'x' : 10, 'y' : 10, 'w' : 280, 'h' : 50,
+            'bg_color': '#E1FFE1', # Note 기본색
+            'pen': QPen(QColor("#008800"), 1, Qt.PenStyle.DashLine), # 초록색 점선
+            'font_size': 10, 'font_weight': 'normal', 'font_family': 'Arial'
+        }
+    }
+    def __init__(self, title:str, config:WikiDocuments):
+        super().__init__()
         self.config = config
-    
+        self.index = title
+        self.TBoard = None
+        self.__start__()
+        self.__init_ui__()
+    def __init_ui__(self):
+        layout = QVBoxLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
+
+
+        layout.addWidget(self.view)
+        self.setLayout(layout)
+    def __start__(self):
+        self.scene = QGraphicsScene()
+        self.view = QGraphicsView(self.scene)
+        self.view.setRenderHint(QPainter.RenderHint.Antialiasing)
+        self.setBackGroundColor()
+    def setBackGroundColor(self):
+        """
+            이 뷰의 배경색을 설정하는 메소드입니다.
+
+            :Documents_View_Color의 값으로 저장되어 있으며, 일반적으로 16진수 RGB 값으로 저장되어 있습니다.
+        """
+        try:
+            color = QColor(self.config.getKeys('Document_View_Color'))
+            if not color.isValid():
+                QMessageBox.information(self, "경고", f"잘못된 색상 코드({self.config.getKeys('Document_View_Color')}. 기본 색인 흰색으로 설정합니다.)", QMessageBox.StandardButton.Ok)
+                color = QColor("#ffffff")
+            self.scene.setBackgroundBrush(QBrush(color))
+            self.view.setStyleSheet(f"background-color: {self.config.getKeys('Document_View_Color')}; border: none;")
+            
+        except Exception as e:
+            QMessageBox.information(self, "오류", f"배경색 설정 오류 : {e}", QMessageBox.StandardButton.Ok)
+            self.scene.setBackgroundBrush(QBrush(QColor("#ffffff")))
+    def update_Text(self):
+        pass
+    def setBody(self, index:str):
+        # 1 씬 비우기
+        self.scene.clear()
+
+        # config 객체에서 원본 DSL 텍스트 가져오기
+        body_dsl = self.config.getBody(index)
+        if not body_dsl:
+            pass
+
+        objects = WikiDocuments.parse_context(body_dsl)
+        self.parseNumber = len(objects)
+
+        if not objects:
+            pass
+
+        for data in objects:
+            obj_type = data.get('type', 'unknown')
+
 class WikiView(QMainWindow):
     Action_Type = Signal(ProgrameAction)
     Close_Title = Signal(str)
     def __init__(self, dir:str, name : str):
         super().__init__()
-        self.Update = False
         self.dir = dir
         self.title = name
         self.IndexView = None
+        self.MainView = None
         self.config = None
+        self.splitter = QSplitter(Qt.Orientation.Horizontal)
+        self.documentRatio = 50
+        self.bodies = None
         self.__start__()
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.__update__)
@@ -80,46 +161,50 @@ class WikiView(QMainWindow):
         self.setWindowTitle(self.title)
         self.Load_Data()
         self.IndexView = WikiIndex(self.title, self.config)
+        self.MainView = DocumentView(self.title, self.config)
         self.programeSignal = ProgrameAction.SubWindowsOpened
         self.setWindowTitle(self.title)
 
         self.makeMenu()
     #data를 로드하는 메소드
     def Load_Data(self):
-        if self.config is None:
+        print(self.dir)
+        if self.config is None and os.path.exists(self.dir):
             self.config = WikiDocuments(self.dir)
-        
-        self.setGeometry(self.config.getKeys('xPos'), self.config.getKeys['yPos'], self.config.getKeys['width'], self.config.getKeys['height'])
+        if len(self.config.DocumentRatio()) == 0:
+            self.config.documentRatio(self.documentRatio)
+        elif len(self.config.DocumentRatio()) == 1:
+            self.config.documentRatio(self.documentRatio)
+        else:
+            self.documentRatio = self.config.DocumentRatios()
+        if self.bodies is None:
+            self.bodies = [self.config.parse_context(self.config.Body(index)) for index in self.config.indexs()]
+        print([t for t in self.bodies])
+        self.setGeometry(self.config.X(), self.config.Y(), self.config.Width(), self.config.Height())
         print('Load Data')
     def WindowScaleCheck(self):
-        
-        if self.data['xPos'] != self.x():
-            self.data['xPos'] = self.x()
-            self.Update = True
-        if self.data['yPos'] != self.y():
-            self.data['yPos'] = self.y()
-            self.Update = True
-        if self.data['width'] != self.width():
-            self.data['width'] = self.width()
-            self.Update = True
-        if self.data['height'] != self.height():
-            self.data['height'] = self.height()
-            self.Update = True
+        if self.config.X() != self.x():
+            self.config.x(self.x())
+        if self.config.Y() != self.y():
+            self.config.y(self.y())
+        if self.config.Width() != self.width():
+            self.config.width(self.width())
+        if self.config.Height() != self.height():
+            self.config.height(self.height())
     def Action_Progress(self):
         if self.programeSignal is ProgrameAction.UpdateWikiTreeView:
             self.Signal_Update(ProgrameAction.UpdateWikiView)
-            print('Action Progress Update Wiki Tree View')
+            self.update_Bodies()
         elif self.programeSignal is ProgrameAction.UpdateWikiData:
             self.IndexView.repaint()
             self.Signal_Update(ProgrameAction.UpdateWikiView)
             print('Action Progress Update Wiki Data')
     def __fixed_update__(self):
+        d = self.splitter.sizes()
+        self.config.documentRatios(d[0], d[1])
         self.Action_Progress()
-        if self.Update:
-            self.Update = False
     def Update_Action_Progress(self):
         if self.programeSignal is ProgrameAction.UpdateWikiView:
-            print(self.IndexView.index.__len__() == self.index.__len__())
             self.Signal_Update(ProgrameAction.SubWindowsDuring)
             print('Update Action Progress update wiki view')
     def __update__(self):
@@ -129,9 +214,10 @@ class WikiView(QMainWindow):
     def __last_update__(self):
         self.WindowScaleCheck()
         self.Signal_Check()
+    def update_Bodies(self):
+        self.bodies = [self.config.Body(index) for index in self.config.indexs()]
     def Signal_Check(self):
         if self.programeSignal is ProgrameAction.AppendIndex:
-            self.Update = True
             self.Signal_Update(ProgrameAction.UpdateWikiData)
             print('Signal check Append Index')
     def makeMenu(self):
@@ -142,7 +228,6 @@ class WikiView(QMainWindow):
     def editMenuBar(self, menu:QMenuBar):
         addIndex = QAction('목차 추가', self)
         addIndex.triggered.connect(self.AppendIndex)
-
         menu.addAction(addIndex)
         print('edit menu bar')
     # index를 추가하는 메소드
@@ -171,18 +256,18 @@ class WikiView(QMainWindow):
         self.Action_Type.emit(signal)
         print('signal update')
     def init_UI(self):
-
-        if self.IndexView is None:
+        if self.IndexView is None and self.MainView is None:
             QMessageBox.critical(self, '오류', 'UI 위젯 초기화 실패')
             self.Signal_Update(ProgrameAction.UpdateWikiTreeView)
             return
         
-        splitter = QSplitter(Qt.Orientation.Horizontal)
-        splitter.addWidget(self.IndexView)
-
-        splitter.setStretchFactor(0, 1)
         
-        self.setCentralWidget(splitter)
+        self.splitter.addWidget(self.IndexView)
+        self.splitter.addWidget(self.MainView)
+
+        self.splitter.setSizes(self.documentRatio)
+        
+        self.setCentralWidget(self.splitter)
         self.IndexView.IndexView.clicked.connect(self.on_index_clicked)
         self.show()
     def on_index_clicked(self, index:QModelIndex):
@@ -190,14 +275,16 @@ class WikiView(QMainWindow):
         if item and item.parent(): 
             page_title = item.text()
             print(f"Clicked page: {page_title}")
-            self.ContentView.show_page(page_title)
+            self.MainView.setBody(page_title)
+        self.Action_Type.emit(ProgrameAction.UpdateTreeView)
     def focusOutEvent(self, event):
         if hasattr(self, 'timer'):
-            self.timer.stop() # <--- [수정] self.time -> self.timer
+            self.timer.stop()
         return super().focusOutEvent(event)
     def closeEvent(self, event):
-        print(f"x : {self.x()} \ny : {self.y()} \nwidth : {self.width()} \nheight : {self.height()} \nindex : {self.data['index']} \nbody : {self.data['body']}")
         self.WindowScaleCheck()
+        print(self.config.DocumentRatios())
+        self.timer.stop()
         self.Action_Type.emit(ProgrameAction.SubWindowsClosed)
         self.Close_Title.emit(self.title)
         del self.config

@@ -1,4 +1,4 @@
-import json, os, platform
+import json, os, platform, re
 from enum import Enum, unique
 
 # 프로그램 config 파일을 읽어오는 클래스
@@ -272,6 +272,80 @@ class ProjectConfig:
                 json.dump(self.data, file)
 # 위키 도큐멘트를 해독하고 저장하며 관리하는 클래스
 class WikiDocuments:
+    """
+    사용자 정의 DSL 텍스트를 파싱하여
+    씬(Scene)에 그릴 객체 정보(dict)의 리스트로 변환합니다.
+
+    Body DSL 형식
+    <body type:[box,x:10,y:40,w:280,h:480]>
+        <title>
+            title
+        </title>
+        <text:10px,nomal,nanumgodic>
+        
+        </text>
+    </Body>
+    """
+    # 1. <Body ...> </Body>의 블록 전체를 찾음 (대소문자 무시)
+    BODY_Block_RE = re.compile(r"<body(.*?>(.*?)</body>)", re.IGNORECASE | re.DOTALL)
+    # 2. <body> 태그 내부의 type 속성을 찾음
+    TYPE_ATTR_RE = re.compile(r'type:\[(.*?)\]', re.IGNORECASE)
+    # 3. type:[...] 내부의 key:value를 찾음
+    ATTR_KV_RE = re.compile(r"(\w+):([\w\d\.-]+)")
+    # 4. <body> 내용물에서 <title> </title>을 찾음
+    TITLE_TAG_RE = re.compile(r"<title>(.*?)</title>", re.IGNORECASE | re.DOTALL)
+    # 5. <text> 내용물에서 <text:...>...</text>를 찾음
+    # 첫번째 그룹 : Style 속성
+    # 두번째 그룹 : 텍스트 내용
+    TEXT_TAG_RE = re.compile(r"<text:(.*?)>(.*?)</text>", re.IGNORECASE | re.DOTALL)
+
+    @staticmethod
+    def parse_context(content_str:str):
+        """DSL 텍스트를 파싱하여 객체 정보 딕셔너리의 리스트로 반환합니다."""
+        body = []
+        if not content_str:
+            return body
+        for body_match in WikiDocuments.BODY_Block_RE.finditer(content_str):
+            body_attributes_str = body_match.group(1)
+            body_content_str = body_match.group(2)
+
+            obj_data = {}
+
+            type_match = WikiDocuments.TYPE_ATTR_RE.search(body_attributes_str)
+            if not type_match:
+                continue # type이 없는 body는 무시
+
+            type_val_str = type_match.group(1) # 예 : box,x:10,y:40...
+            type_parts = type_val_str.split(',')
+            
+            obj_data['type'] = type_parts[0].lower().strip() # box
+            for part in type_parts[1:]:
+                kv_match = WikiDocuments.ATTR_KV_RE.search(part)
+                if kv_match:
+                    key = kv_match.group(1).lower().strip()
+                    value = kv_match.group(2).lower().strip()
+                    try:
+                        obj_data[key] = float(value)
+                    except ValueError:
+                        obj_data[key] = value
+            title_match = WikiDocuments.TITLE_TAG_RE.search(body_content_str)
+            if title_match:
+                obj_data['title'] = title_match.group(1).strip()
+            
+            text_match = WikiDocuments.TEXT_TAG_RE.search(body_content_str)
+            if text_match:
+                style_str = text_match.group(1) # 10px.nomal.nanumgodic
+                obj_data['text'] = text_match.group(2) # 텍스트 내용
+                # 스타일 문자 파싱
+                try:
+                    style_parts = [s.strip() for s in style_str.split(',')]
+                    obj_data['font_size'] = style_parts[0].replace('px', '')
+                    obj_data['font_weight'] = style_parts[1].lower()
+                    obj_data['font_family'] = style_parts[2]
+                except(IndexError, AttributeError):
+                    print(f'텍스트 파싱 오류 : {style_str}')
+                body.append(obj_data)
+        return body
     def __init__(self, dir:str):
         self.file_dir = dir
         self.__start__()
@@ -291,6 +365,34 @@ class WikiDocuments:
             self.file_data['index'] = []
         if 'body' not in self.file_data.keys():
             self.file_data['body'] = {}
+        if 'documents_ratio' not in self.file_data.keys():
+            self.file_data['documents_ratio'] = {}
+    def documentRatio(self, x:int):
+        if 1000 < x:
+            self.file_data['documents_ratio']['first_width'] = 50
+            self.file_data['documents_ratio']['second_width'] = 50
+        else:
+            self.file_data['documents_ratio'] = {'first_width' : x}
+            self.file_data['documents_ratio']['second_width'] = 100 - x
+        self.Save_Data()
+    def documentRatios(self, x1: int, x2:int):
+        self.file_data['documents_ratio']['first_width'] = x1
+        self.file_data['documents_ratio']['second_width'] = x2
+        self.Save_Data()
+    def MakeNewBoxBody(self, title:str):
+        return f"<body type:[box,x:10,y:40,w:280,h:480]><title>{title}</title><text:10px,nomal,nanumgodic> </text></Body>"
+    def Body(self, index:str):
+        if index not in self.file_data['index']:
+            return None
+        elif index in self.file_data['index'] and index not in self.file_data['body'].keys():
+            self.file_data['body'][index] = {self.MakeNewBoxBody}
+        elif index in self.file_data['index'] and len(self.file_data['body'][index]) == 0:
+            self.file_data['body'][index] = self.MakeNewBoxBody(index)
+        return self.file_data['body'][index]
+    def DocumentRatio(self):
+        return self.file_data['documents_ratio']
+    def DocumentRatios(self):
+        return [self.file_data['documents_ratio']['first_width'], self.file_data['documents_ratio']['second_width']]
     def getBody(self, key:str):
         if key not in self.file_data['body'].keys():
             return None
@@ -302,11 +404,44 @@ class WikiDocuments:
         return self.file_data['index']
     def bodys(self):
         return self.file_data['body']
+    def AppendKey(self, value, new_index : str):
+        self.file_data[new_index] = value
+        self.Save_Data()
     def getKeys(self, key:str):
         if key not in self.file_data.keys():
             return None
         else:
             return self.file_data[key]
+    def DocumentViewColor(self):
+        if 'Document_View_Color' not in self.file_data.keys():
+            return None
+        else:
+            self.file_data['Document_View_Color']
+    def DocumentFontColor(self):
+        if 'Document_Font_Color' not in self.file_data.keys():
+            return None
+        else:
+            self.file_data['Document_Font_Color']
+    def x(self, x:int):
+        self.file_data['xPos'] = x
+        self.Save_Data()
+    def y(self, y:int):
+        self.file_data['yPox'] = y
+        self.Save_Data()
+    def width(self, width:int):
+        self.file_data['width'] = width
+        self.Save_Data()
+    def height(self, height:int):
+        self.file_data['height'] = height
+        self.Save_Data()
+    def X(self):
+        return self.file_data['xPos']
+    def Y(self):
+        return self.file_data['yPos']
+    def Width(self):
+        return self.file_data['width']
+    def Height(self):
+        return self.file_data['height']
     def OpenFile(self):
         with open(self.file_dir, 'r', encoding='utf-8') as file:
             self.file_data = json.load(file)
