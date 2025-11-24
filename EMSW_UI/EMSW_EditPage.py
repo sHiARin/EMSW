@@ -2,12 +2,12 @@ from PySide6.QtWidgets import (QMainWindow, QMenuBar, QWidget,
                                QTreeView, QHBoxLayout, QVBoxLayout,
                                QInputDialog, QMessageBox, QSplitter,
                                QAbstractItemView, QGraphicsScene, QGraphicsView,
-                               )
+                               QStatusBar)
 from PySide6.QtCore import (Signal, QTimer, Qt, QModelIndex)
 from PySide6.QtGui import (QAction, QStandardItemModel, QStandardItem,
                            QPalette, QColor, QFont,
                            QPen, QBrush, QPainter)
-from Config.config import WikiDocuments, ProgrameAction
+from Config.config import WikiDocuments, ProgrameAction, ProgrameEventChecker
 
 import os
 
@@ -68,6 +68,8 @@ class WikiIndex(QWidget):
     메시지를 띄운다.
 """
 class DocumentView(QWidget):
+    keyboardSignal = Signal(str)
+    Action_Type = Signal(ProgrameAction)
     DEFAULTS = {
         'box' : {
             'x' : 10, 'y' : 10, 'w' : 280, 'h' : 480,
@@ -84,15 +86,22 @@ class DocumentView(QWidget):
     }
     def __init__(self, title:str, config:WikiDocuments):
         super().__init__()
+        print('wiki documents view')
         self.config = config
+        self.editPage = None
         self.index = title
         self.TBoard = None
         self.__start__()
         self.__init_ui__()
+    # 키보드의 이벤트를 감지하는 이벤트 함수
+    def keyPressEvent(self, event):
+        self.keyboardSignal.emit(event.key())
+        self.Action_Type.emit(ProgrameAction.PressKeyboardEvent)
+        print(event.key())
+        return super().keyPressEvent(event)
     def __init_ui__(self):
         layout = QVBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
-
 
         layout.addWidget(self.view)
         self.setLayout(layout)
@@ -101,6 +110,7 @@ class DocumentView(QWidget):
         self.view = QGraphicsView(self.scene)
         self.view.setRenderHint(QPainter.RenderHint.Antialiasing)
         self.setBackGroundColor()
+    
     def setBackGroundColor(self):
         """
             이 뷰의 배경색을 설정하는 메소드입니다.
@@ -118,31 +128,21 @@ class DocumentView(QWidget):
         except Exception as e:
             QMessageBox.information(self, "오류", f"배경색 설정 오류 : {e}", QMessageBox.StandardButton.Ok)
             self.scene.setBackgroundBrush(QBrush(QColor("#ffffff")))
+    def append_Text(self, key:str, value:str):
+        print('append text')
     def update_Text(self):
         pass
     def setBody(self, index:str):
-        # 1 씬 비우기
-        self.scene.clear()
-
-        # config 객체에서 원본 DSL 텍스트 가져오기
-        body_dsl = self.config.getBody(index)
-        if not body_dsl:
-            pass
-
-        objects = WikiDocuments.parse_context(body_dsl)
-        self.parseNumber = len(objects)
-
-        if not objects:
-            pass
-
-        for data in objects:
-            obj_type = data.get('type', 'unknown')
-
+        if index in self.config.bodys().keys():
+            self.editPage = index
+        else:
+            self.editPage = None
 class WikiView(QMainWindow):
     Action_Type = Signal(ProgrameAction)
     Close_Title = Signal(str)
     def __init__(self, dir:str, name : str):
         super().__init__()
+        self.Focused = False
         self.dir = dir
         self.title = name
         self.IndexView = None
@@ -166,6 +166,17 @@ class WikiView(QMainWindow):
         self.setWindowTitle(self.title)
 
         self.makeMenu()
+        statusBar = QStatusBar()
+        statusBar.showMessage('편집창이 열렸습니다.', 5000)
+        self.setStatusBar(statusBar)
+    #포커스가 이 페이지에 들어올 때 사용하는 이벤트
+    def focusInEvent(self, event):
+        self.Focused = True
+        return super().focusInEvent(event)
+    #포커스가 이 페이지에서 나갈때 사용하는 이벤트
+    def focusOutEvent(self, event):
+        self.Focused = False
+        return super().focusOutEvent(event)
     #data를 로드하는 메소드
     def Load_Data(self):
         print(self.dir)
@@ -199,6 +210,11 @@ class WikiView(QMainWindow):
             self.IndexView.repaint()
             self.Signal_Update(ProgrameAction.UpdateWikiView)
             print('Action Progress Update Wiki Data')
+        if self.programeSignal is ProgrameAction.SubWindowsDuring:
+            print(1)
+    # EditView에서 입력이 발생했는지 하지 않았는지 체크하는 메소드
+    def check_EditView_Action(self):
+        self.MainView.Action_Type.connect(self.Signal_Update)
     def __fixed_update__(self):
         d = self.splitter.sizes()
         self.config.documentRatios(d[0], d[1])
@@ -207,6 +223,12 @@ class WikiView(QMainWindow):
         if self.programeSignal is ProgrameAction.UpdateWikiView:
             self.Signal_Update(ProgrameAction.SubWindowsDuring)
             print('Update Action Progress update wiki view')
+        if self.programeSignal is ProgrameAction.PressKeyboardEvent:
+            print(1)
+            statusBar = QStatusBar()
+            statusBar.showMessage('keyboard signal')
+            self.setStatusBar(statusBar, 1000)
+            self.Signal_Update(ProgrameAction.SubWindowsDuring)
     def __update__(self):
         self.__fixed_update__()
         self.Update_Action_Progress()
@@ -252,6 +274,7 @@ class WikiView(QMainWindow):
             print('programe wrong')
     # Prgraome Signal을 체인지하고, Program Action의 값을 emit하는 메소드
     def Signal_Update(self, signal:ProgrameAction):
+        ProgrameEventChecker(signal.value)
         self.programeSignal = signal
         self.Action_Type.emit(signal)
         print('signal update')
@@ -260,7 +283,6 @@ class WikiView(QMainWindow):
             QMessageBox.critical(self, '오류', 'UI 위젯 초기화 실패')
             self.Signal_Update(ProgrameAction.UpdateWikiTreeView)
             return
-        
         
         self.splitter.addWidget(self.IndexView)
         self.splitter.addWidget(self.MainView)
@@ -274,7 +296,9 @@ class WikiView(QMainWindow):
         item = self.IndexView.model.itemFromIndex(index)
         if item and item.parent(): 
             page_title = item.text()
-            print(f"Clicked page: {page_title}")
+            statusBar = QStatusBar()
+            statusBar.showMessage(f"Clicked page: {page_title}", 5000)
+            self.setStatusBar(statusBar)
             self.MainView.setBody(page_title)
         self.Action_Type.emit(ProgrameAction.UpdateTreeView)
     def focusOutEvent(self, event):

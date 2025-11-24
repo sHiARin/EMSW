@@ -393,11 +393,6 @@ class WikiDocuments:
         return self.file_data['documents_ratio']
     def DocumentRatios(self):
         return [self.file_data['documents_ratio']['first_width'], self.file_data['documents_ratio']['second_width']]
-    def getBody(self, key:str):
-        if key not in self.file_data['body'].keys():
-            return None
-        else:
-            return self.file_data['body'].keys()
     def keys(self):
         return self.file_data.keys()
     def indexs(self):
@@ -488,6 +483,71 @@ class WikiDocuments:
     def __del__(self):
         self.Save_Data()
         print('Wiki Document delete')
+# AI Perusona를 관리하는 클래스
+class AI_Perusona:
+    def __init__(self, dir:str):
+        self.dir = dir
+        self.open_files()
+    def open_files(self):
+        if os.path.exists(self.dir):
+            with open(self.dir, 'r', encoding='utf-8') as file:
+                self.data = json.load(file)
+        elif not os.path.exists(self.dir):
+            if os.path.exists('/'.join(self.dir.split('/')[0:-1])):
+                self.data = {}
+                self.data['name'] = ''
+                self.age['age'] = ''
+                self.data['sex'] = ''
+                self.data['personality'] = ''
+                self.data['hobby'] = []
+                self.data['tendency'] = ''
+                self.data['body'] = []
+                self.data['self_personality'] = ''
+                self.data['self_tendency'] = ''
+                self.data['self_body'] = ''
+                self.data['self_image'] = ''
+                self.save_data()
+        else:
+            return False
+    def set_name(self, name:list):
+        self.data['name'] = name
+        self.save_data()
+    def set_sex(self, sex:list):
+        self.data['sex'] = sex
+        self.save_data()
+    def set_age(self, age:int):
+        self.data['age'] = age
+        self.save_data()
+    def set_personality(self, personality:list):
+        self.data['personality'] = personality
+        self.save_data()
+    def set_hobby(self, hobby:list):
+        self.data['hobby'] = hobby
+        self.save_data()
+    def set_Tendency(self, tendency:list):
+        self.data['tendency'] = tendency
+        self.save_data()
+    def set_body(self, body:list):
+        self.data['body'] = body
+        self.save_data()
+    def set_self_personality(self, personality:str):
+        self.data['self_personality'] = personality
+        self.save_data()
+    def set_self_tendency(self, tendency:str):
+        self.data['self_tendency'] = tendency
+        self.save_data()
+    def set_self_body(self, body:str):
+        self.data['self_body'] = body
+        self.save_data()
+    def set_self_image(self, self_image:str):
+        self.data['self_image'] = self_image
+        self.save_data()
+    def save_data(self):
+        with open(self.dir, 'w', encoding='utf-8') as file:
+            json.dump(self.data, file)
+    def perusona(self):
+        return self.data
+
 # 메인 메뉴의 액션을 구분하기 위한 전용 클래스
 @unique
 class ProgrameAction(Enum):
@@ -557,3 +617,71 @@ class ProgrameAction(Enum):
     UpdateWikiView = 0x1fff01a
     # 위키 트리 뷰를 초기화 합니다.
     UpdateWikiTreeView = 0x1fff01b
+    # 키보드가 입력되었습니다.
+    PressKeyboardEvent = 0x1fff01c
+
+def ProgrameEventChecker(event_code:int):
+    if event_code == ProgrameAction.ProgrameStart:
+        print("ProgrameAction")
+    elif event_code == ProgrameAction.ProgrameDuring:
+        print("ProgrameDuring")
+    elif event_code == ProgrameAction.ProgrameOut:
+        print("ProgrameIn")
+    elif event_code == ProgrameAction.ProgrameIn:
+        print("ProgrameDuring")
+    elif event_code == ProgrameAction.SubWindowsOpened:
+        print("SubWindowsOpened")
+    elif event_code == ProgrameAction.ProjectCreateSuccess:
+        print("ProjectCreateSuccess")
+    elif event_code == ProgrameAction.ProjectCreateFailed:
+        print("ProjectCreateFailed")
+    elif event_code == ProgrameAction.CancleProjectCreate:
+        print("CancleProjectCreate")
+    elif event_code == ProgrameAction.NotOpenedProject:
+        print("NotOpenedProject")
+    elif event_code == ProgrameAction.CancleOpenedProject:
+        print("CancleOpenedProject")
+    elif event_code == ProgrameAction.OpenProjectSuccess:
+        print("OpenProjectSuccess")
+    elif event_code == ProgrameAction.CannotOpenProject:
+        print("CannotOpenProject")
+    elif event_code == ProgrameAction.CreateFiles:
+        print("CreateFiles")
+    elif event_code == ProgrameAction.SetTheProjectDir:
+        print("SetTheProjectDir")
+    elif event_code == ProgrameAction.UpdateUI:
+        print("UpdateUI")
+    elif event_code == ProgrameAction.UpdateTreeView:
+        print("UpdateTreeView")
+    elif event_code == ProgrameAction.SelectTreeView:
+        print("SelectTreeView")
+    elif event_code == ProgrameAction.FinishedTreeViewWork:
+        print("FinishedTreeViewWork")
+    elif event_code == ProgrameAction.FailedTreeViewUpdate:
+        print("FailedTreeViewUpdate")
+    elif event_code == ProgrameAction.SubWindowsClosed:
+        print("SubWindowsClosed")
+    elif event_code == ProgrameAction.SubWindowsOut:
+        print("SubWindowsOut")
+    elif event_code == ProgrameAction.SubWindowsDuring:
+        print("SubWindowsDuring")
+    elif event_code == ProgrameAction.WikiViewOpenedSuccess:
+        print("WikiViewOpenedSuccess")
+    elif event_code == ProgrameAction.WikiViewOpenedFailed:
+        print("WikiViewOpenedFailed")
+    elif event_code == ProgrameAction.WikiViewChecked:
+        print("WikiViewChecked")
+    elif event_code == ProgrameAction.WikiViewOpening:
+        print("WikiViewOpening")
+    elif event_code == ProgrameAction.AppendIndex:
+        print("AppendIndex")
+    elif event_code == ProgrameAction.DeleteIndex:
+        print("DeleteIndex")
+    elif event_code == ProgrameAction.LoadIndex:
+        print("LoadIndex")
+    elif event_code == ProgrameAction.UpdateWikiView:
+        print("UpdateWikiView")
+    elif event_code == ProgrameAction.UpdateWikiTreeView:
+        print("UpdateWikiTreeView")
+    elif event_code == ProgrameAction.PressKeyboardEvent:
+        print("PressKeyboardEvent")
