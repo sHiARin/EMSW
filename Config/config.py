@@ -1,687 +1,210 @@
-import json, os, platform, re
-from enum import Enum, unique
-
-# 프로그램 config 파일을 읽어오는 클래스
-class conf:
-    def __init__(self):
-        self.updated = False
-        self.windows_config = None
-        self.programe_data = None
-        if "Darwin" == platform.system():
-            if 'data' not in os.listdir('./'):
-                os.mkdir('./data')
-            dir_lists = os.listdir('./data')
-            print(dir_lists)
-            self.openError = False
-            if 'windows_config_mac.json' not in dir_lists:
-                self.startWindowsMac()
-            if 'ProjectDirectories_win.json' not in dir_lists:
-                self.programeLoadMac()
-            try:
-                if os.path.isfile('./data/windows_config_mac.json'):
-                    with open('./data/windows_config_mac.json', mode='r', encoding='utf-8') as file:
-                        self.windows_config = json.load(file)
-            except:
-                self.openError = True
-                print(self.openError)
-            try:
-                if os.path.isfile('./data/ProjectDirectories_mac.json'):
-                    with open('./data/ProjectDirectories_mac.json', mode='r', encoding='utf-8') as file:
-                        self.programe_data = json.load(file)
-            except:
-                self.openError = True
-                print(self.openError)
-            self.checkConfig_Mac()
-        elif "Windows" == platform.system():
-            if 'data' not in os.listdir('./'):
-                os.mkdir('./data')
-            dir_lists = os.listdir('./data')
-            self.openError = False
-            if 'windows_config_win.json' not in dir_lists:
-                self.startWindowsWin()
-            if 'ProjectDirectories_win.json' not in dir_lists:
-                self.programeLoadWin()
-            try:
-                if os.path.isfile('./data/windows_config_win.json'):
-                    with open('./data/windows_config_win.json', mode='r', encoding='utf-8') as file:
-                        self.windows_config = json.load(file)
-            except:
-                print('error!')
-            try:
-                if os.path.isfile('./data/ProjectDirectories_win.json'):
-                    with open('./data/ProjectDirectories_win.json', mode='r', encoding='utf-8') as file:
-                        self.programe_data = json.load(file)
-            except:
-                self.openError = True
-            self.checkConfig_Win()
-    # windows_configs_win.json 파일 체크를 수행하는 메소드
-    def startWindowsMac(self):
-        df = {}
-        df['windows_pos_x'] = 100
-        df['windows_pos_y'] = 100
-        df['windows_scale_width'] = 800
-        df['windows_scale_height'] = 650
-        df['language'] = 'ko'
-        df['model'] = 'GPT-OSS:20b'
-        df['treeview_width'] = 80
-        df['treeviwe_height'] = df['windows_scale_width'] / 5
-        df['treeview_height'] = df['windows_scale_height'] - 50
-        with open('./data/windows_config_mac.json', 'w', encoding='utf-8') as file:
-            json.dump(df, file)
-    def programeLoadMac(self):
-        df = {}
-        df['ProjectDirs'] = ['~/Documents']
-        df['LastOpenDir'] = '~/Documents'
-        with open('./data/ProjectDirectories_mac.json', 'w', encoding='utf-8') as file:
-            json.dump(df, file)
-    def startWindowsWin(self):
-        df = {}
-        df['windows_pos_x'] = 100
-        df['windows_pos_y'] = 100
-        df['windows_scale_width'] = 800
-        df['windows_scale_height'] = 650
-        df['language'] = 'ko'
-        df['model'] = 'GPT-OSS:20b'
-        df['treeview_width'] = 80
-        df['treeviwe_height'] = df['windows_scale_width'] / 5
-        df['treeview_height'] = df['windows_scale_height'] - 50
-        with open('./data/windows_config_win.json', 'w', encoding='utf-8') as file:
-            json.dump(df, file)
-        self.windows_config = df
-    # ProjectDirectories_win.json 파일 체크를 수행하는 메소드
-    def programeLoadWin(self):
-        df = {}
-        df['ProjectDirs'] = [r'C:\Users']
-        df['LastOpenDir'] = r'C:\Users'
-        with open('./data/ProjectDirectories_win.json', 'w', encoding='utf-8') as file:
-            json.dump(df, file)
-    # jsonfile을 확인하고, 최종적으로 정정하는 메소드
-    # windows 전용 메소드
-    def checkConfig_Win(self):
-        if self.openError:
-            self.startWindowsWin()
-            self.programeLoadWin()
-            if 'treeview_width' not in self.windows_config.keys():
-                self.windows_config['treeview_width'] = self.windows_config['windows_scale_width'] / 5
-            if 'treeview_height' not in self.windows_config.keys():
-                self.windows_config['treeview_height'] = self.windows_config['windows_scale_height'] - 50
-            if 'widget_align' not in self.windows_config.keys():
-                self.windows_config['widget_align'] = 'left'
-        elif not self.openError and self.windows_config is not None and self.programe_data is not None:
-            if 'treeview_width' not in self.windows_config.keys():
-                self.windows_config['treeview_width'] = self.windows_config['windows_scale_width'] / 5
-            if 'treeview_height' not in self.windows_config.keys():
-                self.windows_config['treeview_height'] = self.windows_config['windows_scale_height'] - 50
-            if 'widget_align' not in self.windows_config.keys():
-                self.windows_config['widget_align'] = 'left'
-            if 'EditTextWindow' not in self.windows_config.keys():
-                self.windows_config['EditTextWindow'] = []
-        else:
-            print('None Exception')
-    # jsonFile을 확인하고, 최종적으로 정정하는 메소드
-    # Mac 전용 메소드
-    def checkConfig_Mac(self):
-        print(self.openError)
-        if self.openError:
-            self.startWindowsMac()
-            self.programeLoadMac()
-            if self.windows_config == None:
-                print('Not Dictionary is here')
-            if 'treeview_width' not in self.windows_config.keys():
-                self.windows_config['treeview_width'] = self.windows_config['windows_scale_width'] / 5
-            if 'treeview_height' not in self.windows_config.keys():
-                self.windows_config['treeview_height'] = self.windows_config['windows_scale_height'] - 50
-            if 'widget_align' not in self.windows_config.keys():
-                self.windows_config['widget_align'] = 'left'
-        elif (not self.openError) and (self.windows_config is not None) and (self.programe_data is not None):
-            print(self.windows_config.keys())
-            if 'treeview_width' not in self.windows_config.keys():
-                self.windows_config['treeview_width'] = int(self.windows_config['windows_scale_width'] / 5)
-            if 'treeview_height' not in self.windows_config.keys():
-                self.windows_config['treeview_height'] = int(self.windows_config['windows_scale_height'] - 50)
-            if 'widget_align' not in self.windows_config.keys():
-                self.windows_config['widget_align'] = 'left'
-        if self.windows_config is None:
-            print('windows_config None')
-        if self.programe_data is None:
-            print('programe_data None')
-    # pos를 업데이트하는 메소드
-    def updatePosition(self, x:int, y:int):
-        self.windows_config['windows_pos_x'] = x
-        self.windows_config['windows_pos_y'] = y
-        self.updated = True
-    # scale을 업데이트하는 메소드
-    def updateScale(self, width:int, height:int):
-        self.windows_config['windows_scale_width'] = width
-        self.windows_config['windows_scale_height'] = height
-        self.updated = True
-    # ProjectDir을 추가하는 메소드
-    def AppenddProjectDir(self, dir:str):
-        dirs = list(self.programe_data['ProjectDirs'])
-        print(dirs)
-        if dir in dirs:
-            pass
-        else:
-            dirs.append(dir)
-            self.programe_data['ProjectDirs'] = dirs
-        if dir != self.programe_data['LastOpenDir']:
-            self.programe_data['LastOpenDir'] = dir
-        self.updated = True
-    # TreeView의 width와 height를 업데이트하는 메소드
-    def UpdateTreeViewScale(self, width:int, height:int):
-        self.windows_config['treeview_width'] = width
-        self.windows_config['treeview_height'] = height
-    # 포지션을 확인하는 메소드
-    def getPosition(self):
-        return self.windows_config['windows_pos_x'], self.windows_config['windows_pos_y']
-    # windows_config 태그를 체크하는 메소드
-    def checkTag(self, key:str, data):
-        tags = self.windows_config.keys()
-        if key not in tags:
-            self.windows_config[key] = data
-            return True
-        else:
-            return False
-    # windows_config 태그 키를 통해서 데이터를 반환하는 메소드
-    def getValueToTag(self, key:str):
-        tags = self.windows_config.keys()
-        if key not in tags:
-            return None
-        else:
-            return self.windows_config[key]
-    # 객체가 삭제될 때 최종적으로 호출하는 메소드
-    def __del__(self):
-        if self.updated and (not self.openError) and platform.system() == 'Darwin' and self.updated:
-            print('Update')
-            with open('./data/windows_config_mac.json', 'w', encoding='utf-8') as file:
-                json.dump(self.windows_config, file)
-            print(self.windows_config)
-            with open('./data/ProjectDirectories_mac.json', 'w', encoding='utf-8') as file:
-                json.dump(self.programe_data, file)
-        elif self.updated and (not self.openError) and platform.system() == "Windows" and self.updated:
-            with open('./data/windows_config_win.json', 'w', encoding='utf-8') as file:
-                json.dump(self.windows_config, file)
-            with open('./data/ProjectDirectories_win.json', 'w', encoding='utf-8') as file:
-                json.dump(self.programe_data, file)
-#프로젝트의 Config를 읽어오는 클래스
-class ProjectConfig:
-    def __init__(self, config_dir:str):
-        self.update_dir = False
-        self.root_dir = config_dir
-        self.opened_file = 'programeWindows.json'
-        self.can_open = False
-        if not self.__start__():
-            print("can not open windows")
-    def __start__(self):
-        self.__check__()
-        if self.__open_Check__() == None:
-            print('Can not Open Window')
-            return False
-    def __check__(self):
-        if platform.system() == 'Windows':
-            if self.opened_file not in os.listdir(self.root_dir):
-                self.WIN_Create_Files()
-            else:
-                self.WIN_Read_Files()
-    def __open_Check__(self):
-        print(type(self.data))
-        return None
-    def WIN_Create_Files(self):
-        File_Tag = {}
-        File_Tag['title'] = self.root_dir.split('\\')[-1]
-        File_Tag['opened_Window'] = []
-        groups = []
-        for f in os.listdir(self.root_dir):
-            if os.path.isdir(f"{self.root_dir}/{f}"):
-                groups.append(f)
-                File_Tag[f] = os.listdir(f"{self.root_dir}/{f}")
-        File_Tag['groups'] = groups
-        
-        with open(self.root_dir + '/' + self.opened_file, 'w', encoding='utf-8') as file:
-            json.dump(File_Tag, file)
-        self.data = File_Tag
-    def WIN_Read_Files(self):
-        file_dir = self.root_dir + '/' + self.opened_file
-        if os.path.exists(file_dir):
-            with open(file_dir, 'r', encoding='utf-8') as file:
-                self.data = json.load(file)
-        else:
-            self.WIN_Create_Files()
-            self.WIN_Read_Files()
-    def OpenWindow(self, dir:str):
-        if 'opened_Window' in self.data.keys():
-            opened = self.data['opened_Window']
-            if dir not in opened:
-                self.data['opened_Window'].append(dir)
-                self.update_dir = True
-                self.can_open = True
-            elif os.path.exists(dir):
-                self.update_dir = False
-                self.can_open = True
-        else:
-            self.update_dir = False
-            self.can_open = False
-    def getOpenWindow(self):
-        if 'opened_Window' in self.data.keys():
-            return self.data['opened_Window']
-        else:
-            return []
-    def __del__(self):
-        if self.update_dir:
-            with open(self.root_dir + '/' + self.opened_file, 'w', encoding='utf-8') as file:
-                json.dump(self.data, file)
-# 위키 도큐멘트를 해독하고 저장하며 관리하는 클래스
-class WikiDocuments:
-    """
-    사용자 정의 DSL 텍스트를 파싱하여
-    씬(Scene)에 그릴 객체 정보(dict)의 리스트로 변환합니다.
-
-    Body DSL 형식
-    <body type:[box,x:10,y:40,w:280,h:480]>
-        <title>
-            title
-        </title>
-        <text:10px,nomal,nanumgodic>
-        
-        </text>
-    </Body>
-    """
-    # 1. <Body ...> </Body>의 블록 전체를 찾음 (대소문자 무시)
-    BODY_Block_RE = re.compile(r"<body(.*?>(.*?)</body>)", re.IGNORECASE | re.DOTALL)
-    # 2. <body> 태그 내부의 type 속성을 찾음
-    TYPE_ATTR_RE = re.compile(r'type:\[(.*?)\]', re.IGNORECASE)
-    # 3. type:[...] 내부의 key:value를 찾음
-    ATTR_KV_RE = re.compile(r"(\w+):([\w\d\.-]+)")
-    # 4. <body> 내용물에서 <title> </title>을 찾음
-    TITLE_TAG_RE = re.compile(r"<title>(.*?)</title>", re.IGNORECASE | re.DOTALL)
-    # 5. <text> 내용물에서 <text:...>...</text>를 찾음
-    # 첫번째 그룹 : Style 속성
-    # 두번째 그룹 : 텍스트 내용
-    TEXT_TAG_RE = re.compile(r"<text:(.*?)>(.*?)</text>", re.IGNORECASE | re.DOTALL)
-
-    @staticmethod
-    def parse_context(content_str:str):
-        """DSL 텍스트를 파싱하여 객체 정보 딕셔너리의 리스트로 반환합니다."""
-        body = []
-        if not content_str:
-            return body
-        for body_match in WikiDocuments.BODY_Block_RE.finditer(content_str):
-            body_attributes_str = body_match.group(1)
-            body_content_str = body_match.group(2)
-
-            obj_data = {}
-
-            type_match = WikiDocuments.TYPE_ATTR_RE.search(body_attributes_str)
-            if not type_match:
-                continue # type이 없는 body는 무시
-
-            type_val_str = type_match.group(1) # 예 : box,x:10,y:40...
-            type_parts = type_val_str.split(',')
-            
-            obj_data['type'] = type_parts[0].lower().strip() # box
-            for part in type_parts[1:]:
-                kv_match = WikiDocuments.ATTR_KV_RE.search(part)
-                if kv_match:
-                    key = kv_match.group(1).lower().strip()
-                    value = kv_match.group(2).lower().strip()
-                    try:
-                        obj_data[key] = float(value)
-                    except ValueError:
-                        obj_data[key] = value
-            title_match = WikiDocuments.TITLE_TAG_RE.search(body_content_str)
-            if title_match:
-                obj_data['title'] = title_match.group(1).strip()
-            
-            text_match = WikiDocuments.TEXT_TAG_RE.search(body_content_str)
-            if text_match:
-                style_str = text_match.group(1) # 10px.nomal.nanumgodic
-                obj_data['text'] = text_match.group(2) # 텍스트 내용
-                # 스타일 문자 파싱
-                try:
-                    style_parts = [s.strip() for s in style_str.split(',')]
-                    obj_data['font_size'] = style_parts[0].replace('px', '')
-                    obj_data['font_weight'] = style_parts[1].lower()
-                    obj_data['font_family'] = style_parts[2]
-                except(IndexError, AttributeError):
-                    print(f'텍스트 파싱 오류 : {style_str}')
-                body.append(obj_data)
-        return body
-    def __init__(self, dir:str):
-        self.file_dir = dir
-        self.__start__()
-    def __start__(self):
-        self.OpenFile()
-        self.Check_keys()
-    def Check_keys(self):
-        if 'height' not in self.file_data.keys():
-            self.file_data['height'] = 400
-        if 'width' not in self.file_data.keys():
-            self.file_data['width'] = 500
-        if 'xPos' not in self.file_data.keys():
-            self.file_data['xPos'] = 100
-        if 'yPos' not in self.file_data.keys():
-            self.file_data['yPos'] = 100
-        if 'index' not in self.file_data.keys():
-            self.file_data['index'] = []
-        if 'body' not in self.file_data.keys():
-            self.file_data['body'] = {}
-        if 'documents_ratio' not in self.file_data.keys():
-            self.file_data['documents_ratio'] = {}
-    def documentRatio(self, x:int):
-        if 1000 < x:
-            self.file_data['documents_ratio']['first_width'] = 50
-            self.file_data['documents_ratio']['second_width'] = 50
-        else:
-            self.file_data['documents_ratio'] = {'first_width' : x}
-            self.file_data['documents_ratio']['second_width'] = 100 - x
-        self.Save_Data()
-    def documentRatios(self, x1: int, x2:int):
-        self.file_data['documents_ratio']['first_width'] = x1
-        self.file_data['documents_ratio']['second_width'] = x2
-        self.Save_Data()
-    def MakeNewBoxBody(self, title:str):
-        return f"<body type:[box,x:10,y:40,w:280,h:480]><title>{title}</title><text:10px,nomal,nanumgodic> </text></Body>"
-    def Body(self, index:str):
-        if index not in self.file_data['index']:
-            return None
-        elif index in self.file_data['index'] and index not in self.file_data['body'].keys():
-            self.file_data['body'][index] = {self.MakeNewBoxBody}
-        elif index in self.file_data['index'] and len(self.file_data['body'][index]) == 0:
-            self.file_data['body'][index] = self.MakeNewBoxBody(index)
-        return self.file_data['body'][index]
-    def DocumentRatio(self):
-        return self.file_data['documents_ratio']
-    def DocumentRatios(self):
-        return [self.file_data['documents_ratio']['first_width'], self.file_data['documents_ratio']['second_width']]
-    def keys(self):
-        return self.file_data.keys()
-    def indexs(self):
-        return self.file_data['index']
-    def bodys(self):
-        return self.file_data['body']
-    def AppendKey(self, value, new_index : str):
-        self.file_data[new_index] = value
-        self.Save_Data()
-    def getKeys(self, key:str):
-        if key not in self.file_data.keys():
-            return None
-        else:
-            return self.file_data[key]
-    def DocumentViewColor(self):
-        if 'Document_View_Color' not in self.file_data.keys():
-            return None
-        else:
-            self.file_data['Document_View_Color']
-    def DocumentFontColor(self):
-        if 'Document_Font_Color' not in self.file_data.keys():
-            return None
-        else:
-            self.file_data['Document_Font_Color']
-    def x(self, x:int):
-        self.file_data['xPos'] = x
-        self.Save_Data()
-    def y(self, y:int):
-        self.file_data['yPox'] = y
-        self.Save_Data()
-    def width(self, width:int):
-        self.file_data['width'] = width
-        self.Save_Data()
-    def height(self, height:int):
-        self.file_data['height'] = height
-        self.Save_Data()
-    def X(self):
-        return self.file_data['xPos']
-    def Y(self):
-        return self.file_data['yPos']
-    def Width(self):
-        return self.file_data['width']
-    def Height(self):
-        return self.file_data['height']
-    def OpenFile(self):
-        with open(self.file_dir, 'r', encoding='utf-8') as file:
-            self.file_data = json.load(file)
-    def AppendIndex(self, new:str):
-        if type(self.file_data) is dict:
-            if new not in self.file_data['index']:
-                self.file_data['index'].append(new)
-                self.file_data['body'][new] = []
-                self.Save_Data()
-                return True
-            else:
-                return False
-        print(self.file_data)
-        self.Save_Data()
-    def FindBody(self, index:str):
-        return index in self.file_data['body'].keys()
-    def index_len(self):
-        return len(self.file_data['index'])
-    def swap_index(self, i, j):
-        if i <= len(self.file_data['index']) and j <= len(self.file_data['index']):
-            self.file_data['index'][i], self.file_data['index'][j] = self.file_data['index'][j], self.file_data['index'][i]
-            self.Save_Data()
-            return True
-        else:
-            return False
-    def InsertBody(self, index:str, sentence:str, Code:list):
-        print(Code)
-        if index not in self.file_data['index'] or index not in self.file_data['body'].keys():
-            return False
-        else:
-            body = None
-            l = len(self.file_data['body'][index]) + 1
-            if len(Code) == 0:
-                body = f'<text style:nomal,body,10-{l}>{sentence}</text>'
-                self.file_data['body'][index].append(body)
-            else:
-                body = f'<text style:{','.join([c for c in Code])}-{l}>{sentence}</text>'
-            self.file_data['body'][index] = body
-            self.Save_Data()
-            return True
-    def Save_Data(self):
-        with open(self.file_dir, 'w', encoding='utf-8') as file:
-            json.dump(self.file_data, file)
-    def __del__(self):
-        self.Save_Data()
-        print('Wiki Document delete')
-# AI Perusona를 관리하는 클래스
-class AI_Perusona:
-    def __init__(self, dir:str):
-        self.dir = dir
-        self.open_files()
-    def open_files(self):
-        if os.path.exists(self.dir):
-            with open(self.dir, 'r', encoding='utf-8') as file:
-                self.data = json.load(file)
-        elif not os.path.exists(self.dir):
-            if os.path.exists('/'.join(self.dir.split('/')[0:-1])):
-                self.data = {}
-                self.data['name'] = ''
-                self.age['age'] = ''
-                self.data['sex'] = ''
-                self.data['personality'] = ''
-                self.data['hobby'] = []
-                self.data['tendency'] = ''
-                self.data['body'] = []
-                self.data['self_personality'] = ''
-                self.data['self_tendency'] = ''
-                self.data['self_body'] = ''
-                self.data['self_image'] = ''
-                self.save_data()
-        else:
-            return False
-    def set_name(self, name:list):
-        self.data['name'] = name
-        self.save_data()
-    def set_sex(self, sex:list):
-        self.data['sex'] = sex
-        self.save_data()
-    def set_age(self, age:int):
-        self.data['age'] = age
-        self.save_data()
-    def set_personality(self, personality:list):
-        self.data['personality'] = personality
-        self.save_data()
-    def set_hobby(self, hobby:list):
-        self.data['hobby'] = hobby
-        self.save_data()
-    def set_Tendency(self, tendency:list):
-        self.data['tendency'] = tendency
-        self.save_data()
-    def set_body(self, body:list):
-        self.data['body'] = body
-        self.save_data()
-    def set_self_personality(self, personality:str):
-        self.data['self_personality'] = personality
-        self.save_data()
-    def set_self_tendency(self, tendency:str):
-        self.data['self_tendency'] = tendency
-        self.save_data()
-    def set_self_body(self, body:str):
-        self.data['self_body'] = body
-        self.save_data()
-    def set_self_image(self, self_image:str):
-        self.data['self_image'] = self_image
-        self.save_data()
-    def save_data(self):
-        with open(self.dir, 'w', encoding='utf-8') as file:
-            json.dump(self.data, file)
-    def perusona(self):
-        return self.data
+from enum import Enum
 
 # 메인 메뉴의 액션을 구분하기 위한 전용 클래스
-@unique
 class ProgrameAction(Enum):
     ### 프로그램 동작 관련 액션 시그널 ###
-    # 프로그램이 열렸습니다.
-    ProgrameStart = 0x0fff000
+    # 프로그램이 열렸다는 시그널
+    ProgrameStart = 0xfff000
+    # 활성화된 디스플레이를 식별한 시그널
+    SetWindowPosition = 0xfff001
+    # 띄울 창의 위치를 변경한 시그널
+    FixedWindowPosition = 0xfff002
+    # 프로그램의 UI를 만듭니다.
+    MakeUI = 0xfff003
     # 프로그램이 실행중입니다.
-    ProgrameDuring = 0x0fff001
-    # 포커스를 벗어났습니다.
-    ProgrameOut = 0x0fff002
-    # 포커스를 얻었습니다.
-    ProgrameIn = 0x0fff003
-    ### 서브 윈도우 및 프로그램 동작 변수 관련 액션 시그널 ###
+    ProgrameDuring = 0xfff003
     # 서브 윈도우 창이 열렸습니다.
-    SubWindowsOpened = 0x1fff000
+    SubWindowsOpened = 0xfff004
     # 프로젝트 생성에 성공했습니다.
-    ProjectCreateSuccess = 0x1fff001
+    ProjectCreateSuccess = 0xfff005
     # 프로젝트 생성에 실패했습니다.
-    ProjectCreateFailed = 0x1fff002
+    ProjectCreateFailed = 0xfff006
     # 프로젝트 생성을 취소했습니다.
-    CancleProjectCreate = 0x1fff003
+    CancleProjectCreate = 0xfff007
     # 프로젝트가 열리지 않았습니다.
-    NotOpenedProject = 0x1fff004
+    NotOpenedProject = 0xfff008
     # 프로젝트 여는 것을 취소했습니다.
-    CancleOpenedProject = 0x1fff005
+    CancleOpenedProject = 0xfff009
     # 프로젝트가 열렸습니다.
-    OpenProjectSuccess = 0x1fff006
+    OpenProjectSuccess = 0xfff00a
     # 프로젝트 여는 것에 실패했습니다.
-    CannotOpenProject = 0x1fff007
+    CannotOpenProject = 0xfff00b
     # 파일을 생성했습니다.
-    CreateFiles = 0x1fff008
+    CreateFiles = 0xfff00c
     # 프로젝트 경로가 설정되었습니다.
-    SetTheProjectDir = 0x1fff009
+    SetTheProjectDir = 0xfff00d
     # UI가 업데이트 되었습니다.
-    UpdateUI = 0x1fff00a
+    UpdateUI = 0xfff00e
     # TreeView가 업데이트 되었습니다.
-    UpdateTreeView = 0x1fff00b
+    UpdateTreeView = 0xfff00f
     # TreeView에서 선택이 변경되었습니다.
-    SelectTreeView = 0x1fff00c
+    SelectTreeView = 0xfff010
     # TreeView의 작업이 완료되었습니다.
-    FinishedTreeViewWork = 0x1fff00d
+    FinishedTreeViewWork = 0xfff011
     # TreeView의 갱신을 실패했습니다.
-    FailedTreeViewUpdate = 0x1fff00e
+    FailedTreeViewUpdate = 0xfff012
     # 서브 윈도우가 닫혔습니다.
-    SubWindowsClosed = 0x1fff00f
+    SubWindowsClosed = 0xfff013
     # 서브 윈도우에서 벗어났습니다.
-    SubWindowsOut = 0x1fff010
+    SubWindowsOut = 0xfff014
     # 서브 윈도우 동작중
-    SubWindowsDuring = 0x1fff011
+    SubWindowsDuring = 0xfff015
     # WikiView가 성공적으로 열렸습니다.
-    WikiViewOpenedSuccess = 0x1fff012
+    WikiViewOpenedSuccess = 0xfff016
     # WikiView를 여는 것에 실패했습니다.
-    WikiViewOpenedFailed = 0x1fff013
+    WikiViewOpenedFailed = 0xfff017
     # 열린 WikiView를 확인합니다.
-    WikiViewChecked = 0x1fff014
+    WikiViewChecked = 0xfff018
     # WikiView를 엽니다.
-    WikiViewOpening = 0x1fff015
+    WikiViewOpening = 0xfff019
     # 인덱스가 추가되었습니다.
-    AppendIndex = 0x1fff016
+    AppendIndex = 0xfff01a
     # 인덱스가 삭제되었습니다.
-    DeleteIndex = 0x1fff017
+    DeleteIndex = 0xfff01b
     # 인덱스 내용이 갱신되어, 업데이트가 필요합니다.
-    UpdateWikiData = 0x1fff018
+    UpdateWikiData = 0xfff01c
     # 위키 뷰의 인덱스를 로드합니다.
-    LoadIndex = 0x1fff019
+    LoadIndex = 0xfff01d
     # 위키 뷰를 초기화 합니다.
-    UpdateWikiView = 0x1fff01a
+    UpdateWikiView = 0xfff01e
     # 위키 트리 뷰를 초기화 합니다.
-    UpdateWikiTreeView = 0x1fff01b
+    UpdateWikiTreeView = 0xfff01f
     # 키보드가 입력되었습니다.
-    PressKeyboardEvent = 0x1fff01c
+    PressKeyboardEvent = 0xfff020
+    # AI가 로드중입니다.
+    LoadLLMModel = 0xfff021
+    # 잘못된 AI 모델의 이름입니다.
+    WrongLLMModelName = 0xfff022
+    # AI 로드가 완료되었습니다.
+    FinishedLoadLLM = 0xfff023
+    # AI의 페르소나를 제작합니다.
+    CreateAIPerusona = 0xfff024
+    # AI의 이름을 설정해주세요.
+    NeedToAIName = 0xfff025
+    # AI의 이름을 설정했습니다.
+    SetAIPerusonaName = 0xfff026
+    # AI의 성별을 설정해주세요.
+    NeedToAISex = 0xfff027
+    # AI의 성별을 설정했습니다.
+    SetAIPerusonaSex = 0xfff028
+    # AI의 연령을 설정해주세요.
+    NeedToAIAge = 0xfff029
+    # AI의 연령을 설정했습니다.
+    SetAIPerusonaAge = 0xfff02a
+    # AI의 성격을 설정해 주세요.
+    NeedToAIPersonality = 0xfff02b
+    # AI의 성격을 설정했습니다.
+    SetAIPerusonaPersonality = 0xfff02c
+    # AI의 성향을 설정해 주세요.
+    NeedToAITendency = 0xfff02d
+    # AI의 성향을 설정했습니다.
+    SetAIPerusonaTendency = 0xfff02e
+    # AI의 취미를 설정해 주세요.
+    NeedToAIHubby = 0xfff02f
+    # AI의 취미를 설정했습니다.
+    SetAIPerusonaHubby = 0xfff030
+    # AI의 외형을 설정해 주세요
+    NeedToAIBody = 0xfff031
+    # AI의 외형을 설정했습니다.
+    SetAIPerusonaBody = 0xfff032
+    # AI가 스스로의 성격을 생각합니다.
+    ThinkPersonalityAISelf = 0xfff033
+    # AI의 성격을 정의합니다.
+    AIDefineSelfPersonality = 0xfff034
+    # AI의 성격을 고칩니다.
+    FixedAIDefineSelfPersonality = 0xfff035
+    # AI가 스스로의 성격을 생각합니다.
+    ThinkTendencyAISelf = 0xfff036
+    # AI의 성향을 정의합니다.
+    AIDefineSelfTendency = 0xfff037
+    # AI의 성향을 고칩니다.
+    FixedAIDefineSelfTendency = 0xfff038
+    # AI가 스스로의 외형을 생각합니다.
+    ThinkBodyAISelf = 0xfff039
+    # AI의 외형을 정의합니다.
+    AIDefineSelfBody = 0xfff03a
+    # AI의 외형을 고칩니다.
+    FixedAIDefineSelfBody = 0xfff03b
+    # AI가 스스로의 자아를 생각합니다.
+    ThinkSelfImageAISelf = 0xfff03c
+    # AI의 자아를 정의합니다.
+    AIDefineSelfImage = 0xfff03d
+    # AI의 자아를 고칩니다.
+    FixedAIDefineSelfImage = 0xfff03e
+    # 다음 항목으로 넘어간다.
+    PassNextArticles = 0xfff03f
+    # AI의 페르소나가 완성되었습니다.
+    FinishedCreationAIPerusona = 0xfff040
+    # AI에게 메시지를 보냈습니다.
+    SendMessageLLM = 0xfff041
+    # AI가 답변을 생성했습니다.
+    CreateAnswerLLM = 0xfff042
+    # AI가 대화 내용을 정리중입니다.
+    ArrangementOfTalk = 0xfff043
+    # 글로벌 룰을 어겼는지 검사중입니다.
+    CheckingGlobalRule = 0xfff044
+    # 다시 생성합니다.
+    Regenerator = 0xfff045
+    # AI 페르소나를 다시 만드세요.
+    RemakeAIPerusona = 0xfff044
+    # JsonFile에 오류가 발생했습니다.
+    ErrorFileJson = 0xfff045
+    # 파일을 저장하라는 메시지를 보냅니다.
 
-def ProgrameEventChecker(event_code:int):
-    if event_code == ProgrameAction.ProgrameStart:
-        print("ProgrameAction")
-    elif event_code == ProgrameAction.ProgrameDuring:
-        print("ProgrameDuring")
-    elif event_code == ProgrameAction.ProgrameOut:
-        print("ProgrameIn")
-    elif event_code == ProgrameAction.ProgrameIn:
-        print("ProgrameDuring")
-    elif event_code == ProgrameAction.SubWindowsOpened:
-        print("SubWindowsOpened")
-    elif event_code == ProgrameAction.ProjectCreateSuccess:
-        print("ProjectCreateSuccess")
-    elif event_code == ProgrameAction.ProjectCreateFailed:
-        print("ProjectCreateFailed")
-    elif event_code == ProgrameAction.CancleProjectCreate:
-        print("CancleProjectCreate")
-    elif event_code == ProgrameAction.NotOpenedProject:
-        print("NotOpenedProject")
-    elif event_code == ProgrameAction.CancleOpenedProject:
-        print("CancleOpenedProject")
-    elif event_code == ProgrameAction.OpenProjectSuccess:
-        print("OpenProjectSuccess")
-    elif event_code == ProgrameAction.CannotOpenProject:
-        print("CannotOpenProject")
-    elif event_code == ProgrameAction.CreateFiles:
-        print("CreateFiles")
-    elif event_code == ProgrameAction.SetTheProjectDir:
-        print("SetTheProjectDir")
-    elif event_code == ProgrameAction.UpdateUI:
-        print("UpdateUI")
-    elif event_code == ProgrameAction.UpdateTreeView:
-        print("UpdateTreeView")
-    elif event_code == ProgrameAction.SelectTreeView:
-        print("SelectTreeView")
-    elif event_code == ProgrameAction.FinishedTreeViewWork:
-        print("FinishedTreeViewWork")
-    elif event_code == ProgrameAction.FailedTreeViewUpdate:
-        print("FailedTreeViewUpdate")
-    elif event_code == ProgrameAction.SubWindowsClosed:
-        print("SubWindowsClosed")
-    elif event_code == ProgrameAction.SubWindowsOut:
-        print("SubWindowsOut")
-    elif event_code == ProgrameAction.SubWindowsDuring:
-        print("SubWindowsDuring")
-    elif event_code == ProgrameAction.WikiViewOpenedSuccess:
-        print("WikiViewOpenedSuccess")
-    elif event_code == ProgrameAction.WikiViewOpenedFailed:
-        print("WikiViewOpenedFailed")
-    elif event_code == ProgrameAction.WikiViewChecked:
-        print("WikiViewChecked")
-    elif event_code == ProgrameAction.WikiViewOpening:
-        print("WikiViewOpening")
-    elif event_code == ProgrameAction.AppendIndex:
-        print("AppendIndex")
-    elif event_code == ProgrameAction.DeleteIndex:
-        print("DeleteIndex")
-    elif event_code == ProgrameAction.LoadIndex:
-        print("LoadIndex")
-    elif event_code == ProgrameAction.UpdateWikiView:
-        print("UpdateWikiView")
-    elif event_code == ProgrameAction.UpdateWikiTreeView:
-        print("UpdateWikiTreeView")
-    elif event_code == ProgrameAction.PressKeyboardEvent:
-        print("PressKeyboardEvent")
+EVENT_MAPPING = {
+    ProgrameAction.ProgrameStart: "ProgrameAction",
+    ProgrameAction.ProgrameDuring: "ProgrameDuring",
+    ProgrameAction.ProgrameStart: "ProgrameStart",
+    ProgrameAction.ProgrameDuring: "ProgrameDuring",
+    ProgrameAction.SubWindowsOpened: "SubWindowsOpened",
+    ProgrameAction.ProjectCreateSuccess: "ProjectCreateSuccess",
+    ProgrameAction.ProjectCreateFailed: "ProjectCreateFailed",
+    ProgrameAction.CancleProjectCreate: "CancleProjectCreate",
+    ProgrameAction.NotOpenedProject: "NotOpenedProject",
+    ProgrameAction.CancleOpenedProject: "CancleOpenedProject",
+    ProgrameAction.OpenProjectSuccess: "OpenProjectSuccess",
+    ProgrameAction.CannotOpenProject: "CannotOpenProject",
+    ProgrameAction.CreateFiles: "CreateFiles",
+    ProgrameAction.SetTheProjectDir: "SetTheProjectDir",
+    ProgrameAction.UpdateUI: "UpdateUI",
+    ProgrameAction.UpdateTreeView: "UpdateTreeView",
+    ProgrameAction.SelectTreeView: "SelectTreeView",
+    ProgrameAction.FinishedTreeViewWork: "FinishedTreeViewWork",
+    ProgrameAction.FailedTreeViewUpdate: "FailedTreeViewUpdate",
+    ProgrameAction.SubWindowsClosed: "SubWindowsClosed",
+    ProgrameAction.SubWindowsOut: "SubWindowsOut",
+    ProgrameAction.SubWindowsDuring: "SubWindowsDuring",
+    ProgrameAction.WikiViewOpenedSuccess: "WikiViewOpenedSuccess",
+    ProgrameAction.WikiViewOpenedFailed: "WikiViewOpenedFailed",
+    ProgrameAction.WikiViewChecked: "WikiViewChecked",
+    ProgrameAction.WikiViewOpening: "WikiViewOpening",
+    ProgrameAction.AppendIndex: "AppendIndex",
+    ProgrameAction.DeleteIndex: "DeleteIndex",
+    ProgrameAction.LoadIndex: "LoadIndex",
+    ProgrameAction.UpdateWikiView: "UpdateWikiView",
+    ProgrameAction.UpdateWikiTreeView: "UpdateWikiTreeView",
+    ProgrameAction.PressKeyboardEvent: "PressKeyboardEvent",
+    ProgrameAction.LoadLLMModel: "LoadLLMModel",
+    ProgrameAction.WrongLLMModelName: "WrongLLMModelName",
+    ProgrameAction.FinishedLoadLLM: "FinishedLoadLLM",
+    ProgrameAction.CreateAIPerusona: "CreateAIPerusona",
+    ProgrameAction.SetAIPerusonaName: "SetAIPerusonaName",
+    ProgrameAction.SetAIPerusonaSex: "SetAIPerusonaSex",
+    ProgrameAction.SetAIPerusonaPersonality: "SetAIPerusonaPersonality",
+    ProgrameAction.SetAIPerusonaTendency: "SetAIPerusonaTendency",
+    ProgrameAction.SetAIPerusonaHubby: "SetAIPerusonaHubby",
+    ProgrameAction.SetAIPerusonaBody: "SetAIPerusonaBody",
+    ProgrameAction.AIDefineSelfPersonality:"AIDefineSelfPersonality",
+    ProgrameAction.AIDefineSelfTendency:"AIDefineSelfTendency",
+    ProgrameAction.AIDefineSelfBody:"AIDefineSelfBody",
+    ProgrameAction.AIDefineSelfImage:"AIDefineSelfImage",
+    ProgrameAction.FinishedCreationAIPerusona: "FinishedCreationAIPerusona",
+    ProgrameAction.SendMessageLLM: "SendMessageLLM",
+    ProgrameAction.CreateAnswerLLM: "CreateAnswerLLM",
+    ProgrameAction.ArrangementOfTalk: "ArrangementOfTalk",
+}
+
+def ProgrameEventChecker(event_code:ProgrameAction):
+    action_string = EVENT_MAPPING[event_code]
+    if action_string:
+        print(action_string)

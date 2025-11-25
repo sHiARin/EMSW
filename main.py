@@ -1,13 +1,18 @@
 from EMSW_UI.EMSW_MainUI import EMSW
-from Config.config import conf
+from EMSW_UI.core.resource import ProjectConfig
 from PySide6.QtWidgets import QApplication
 
-import sys
+import sys, os, json
 
 def main():
-    config = conf()
     app = QApplication(sys.argv)
-    m_app = EMSW(config)
+    if 'ProjectData' not in os.listdir('./'):
+        m_app = EMSW(ProjectConfig())
+    else:
+        with open('./ProjectData', 'r', encoding='utf-8') as file:
+            data = file.read()
+            key = data.keys()
+            if 'LastOpenProject' in 
     app.exec()
 
 if __name__ == '__main__':

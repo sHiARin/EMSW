@@ -1,20 +1,26 @@
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_community.chat_models import ChatOllama
+from PySide6.QtCore import Signal
+from EMSW_UI.core.resource import GlobalSignalHub
 
-from Config.config import AI_Perusona
+from Config.config import AI_Perusona, ProgrameAction
 
 import requests
 
 class Create_AI:
-    def __init__(self, llm_name, memory_dir):
+    def __init__(self, llm_name : str, perusona:AI_Perusona):
+        self.hub = GlobalSignalHub.instance()
+        self.hub.programe_signal.emit(ProgrameAction.LoadLLMModel)
         self.ollama_list()
         self.memory_store = []
         if llm_name not in self.model_list:
+            self.hub.programe_signal.emit(ProgrameAction.WrongLLMModelName)
             raise RuntimeError(f"Error: Wrong model name")
         else:
+            self.hub.programe_signal.emit(ProgrameAction.FinishedLoadLLM)
             self.llm = ChatOllama(model=llm_name, temperature=0.7)
-        self.perusona = AI_Perusona(memory_dir)
+        self.perusona = perusona
     def ollama_list(self, host="http://localhost:11434"):
         url = f"{host}/api/tags"
         response = requests.get(url)
@@ -22,12 +28,7 @@ class Create_AI:
             raise RuntimeError(f"Error: {response.status_code} {response.text}")
         
         self.model_list = [m["name"] for m in response.json().get("models", [])]
-    def setName(self, name:str):
-        if ':' in name:
-            n = name.split(':')
-            self.perusona.set_name(n)
-        else:
-            self.perusona.set_name([name])
+
     def setSex(self, sex:str):
         if ':' in sex:
             s = sex.split(':')
@@ -136,4 +137,3 @@ class Create_AI:
         return self.memory_store[-1]
     def getPerusona(self):
         return self.perusona.perusona()
-    
