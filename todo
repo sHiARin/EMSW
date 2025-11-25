@@ -242,20 +242,21 @@ name : {
     self_personality : content,
     self_tendency : content,
     self_image : content,
+    note : content,
 }
 
 여기서, ai persona는 가변이 가능한 데이터와 바뀌지 않는 기본 데이터로 나뉘는데, 가변 데이터는 사용자가 dict로 추가할 수 있다.
 단, body, personality, tendency, self_image, note 내에 만들어야 하며, body는 외형, personality는 성격, tendency는 성향, self_image는 자아, note는 기타(AI가 정의하도록 만듬)
 sex는 말 그대로 성별이다.
 
+data는 content의 type, content로 나뉘어 있는데, 만약 이 content가 문서가 아닌 다른 파일이라면 data 내의 이름으로 저장되며, 확장자 명을 포함한 파일 이름이 content 값이 된다.
+data 역시 확장자 명은 없다. 파일의 이름은 추가된 data의 수를 서수로 매긴다.
 data : {
     type : content,
 }
-data는 content의 type, content로 나뉘어 있는데, 만약 이 content가 문서가 아닌 다른 파일이라면 data 내의 이름으로 저장되며, 확장자 명을 포함한 파일 이름이 content 값이 된다.
 
-document는 문서의 이름이며, 확장자 명은 없다.
+document는 문서가 등록된 것을 서수로 읽은 이름이며, 확장자 명은 없다.
 또한, documents는 title과 index, text로 나뉘는데, index는 소설의 경우 소제목으로 분류하며, 사전의 경우 말 그대로 index이다.
-
 name : {
     title : content,
     index : content,

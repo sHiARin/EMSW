@@ -56,35 +56,64 @@ class ProjectConfig:
                                                     "summary" : {
                                                                 "date" : "Context",
                                                     },
-                                    }
+                                    },
                                 }
             self.AI_Word = {
-                                'contry' : {
-                                                "name" : "content",
-                                                "populate" : 0,
-                                                "political_system" : "content",
-                                                "citis" : [],
-                                                "low" : [],
-                                                "economic_system"  : "content",
-                                                "leader" : "content",
-                                                "cultural_level" : "content",                 
+                                'sample' :{
+                                    'contry' : {
+                                                    "name" : "content",
+                                                    "populate" : 0,
+                                                    "political_system" : "content",
+                                                    "citis" : [],
+                                                    "low" : [],
+                                                    "economic_system"  : "content",
+                                                    "leader" : "content",
+                                                    "cultural_level" : "content",                 
+                                    },
+                                    "world" : {
+                                                    "continent" : "",
+                                                    "continent_name" : [],
+                                                    "continent_populate" : {"name":"content"},
+                                                    "continent_contries" : {"name":["content"]},
+                                                    "continent_resource" : {"name":["content"]},
+                                                    "continent_ecosystem_level" : {"name":["content"]},
+                                    },
                                 },
-                                "world" : {
-                                                "continent" : "",
-                                                "continent_name" : [],
-                                                "continent_populate" : {"name":"content"},
-                                                "continent_contries" : {"name":["content"]},
-                                                "continent_resource" : {"name":["content"]},
-                                                "continent_ecosystem_level" : {"name":["content"]},
-                                }
                             }
             self.AI_Perusona = {
+                                    'sample' : {
+                                                "age" : 0,
+                                                "sex" : 'content',
+                                                'personality' : "content",
+                                                'hobby' : 'content',
+                                                'tendency' : 'content',
+                                                'body' : 'content',
+                                                'self_body' : [],
+                                                'self_personality' : [],
+                                                'self_tendency' : [],
+                                                'self_image' : [],
+                                                'note' : [],
+                                            },
+
                                 }
             self.documents = {
+                                'sample' : {
+                                            'title' : 'content',
+                                            'index' : 'content',
+                                            'text' : 'content',
+                                        },
                               }
             self.data = {
+                            'sample' : {
+                                'type' : 'content',
+                            }
                         }
             self.timer = {
+                            'name' : {
+                                'input_time' : 0,
+                                'focus_time' : 0,
+                                'active_time' : 0,
+                            }
                         }
             self.metadata = {
                                 "ProgrameData" : {
