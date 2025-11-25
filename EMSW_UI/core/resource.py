@@ -44,77 +44,75 @@ class ProjectConfig:
         self.buffer = io.BytesIO()
         self.Save = False
         self.dir = ''
+        self.title = ''
         if (len(kwargs) == 0):
-            self.AI_Perusona = {
+            self.ProjectItems = {
+                                    'AI_Data' : {
+                                        'sample' : {
+                                                "date" : {
+                                                    "time" : {
+                                                            "name" : "content",
+                                                            "user" : "content",
+                                                            },
+                                                        },
+                                                "summary" : {
+                                                    "date" : "summary_data",
+                                                },
+                                            },
+                                }, "AI_World" :{
+                                        'sample' : {
+                                            'contry' : {
+                                                'name' : 'content',
+                                                'populate' : 'number',
+                                                'political_system' : 'content',
+                                                'citis' : [],
+                                                'low' : [],
+                                                'economic_system'  : 'content',
+                                                'leader' : 'content',
+                                                'cultural_level' : [],
+                                            },
+                                            'world' : {
+                                                'continent' : [],
+                                                'continent_name' : {},
+                                                'continent_populate' : {},
+                                                'continent_contries' : {},
+                                                'continent_resource' : {},
+                                                'continent_ecosystem' : {},
+                                            }
+                                        }
+                                
+                                }, "AI_Perusona" : {
+                                                    'sample' : {
+                                                            "age" : 0,
+                                                            "sex" : 'content',
+                                                            'personality' : "content",
+                                                            'hobby' : 'content',
+                                                            'tendency' : 'content',
+                                                            'body' : 'content',
+                                                            'self_body' : [],
+                                                            'self_personality' : [],
+                                                            'self_tendency' : [],
+                                                            'self_image' : [],
+                                                            'note' : [],
+                                                    },
+                                }, "documents" : {
+                                                    'sample' : {
+                                                        'title' : 'content',
+                                                        'index' : 'content',
+                                                        'text' : 'content',
+                                                },
+                              }, 'data' : {
+                                            'sample' : {
+                                                            'type' : 'content',
+                                                        }
+                            }, "timer" : {
                                     'sample' : {
-                                                    "date" : {
-                                                                "hour" : {
-                                                                    "name" : "context",
-                                                                    "user" : "context",
-                                                                }
-                                                    },
-                                                    "summary" : {
-                                                                "date" : "Context",
-                                                    },
-                                    },
-                                }
-            self.AI_Word = {
-                                'sample' :{
-                                    'contry' : {
-                                                    "name" : "content",
-                                                    "populate" : 0,
-                                                    "political_system" : "content",
-                                                    "citis" : [],
-                                                    "low" : [],
-                                                    "economic_system"  : "content",
-                                                    "leader" : "content",
-                                                    "cultural_level" : "content",                 
-                                    },
-                                    "world" : {
-                                                    "continent" : "",
-                                                    "continent_name" : [],
-                                                    "continent_populate" : {"name":"content"},
-                                                    "continent_contries" : {"name":["content"]},
-                                                    "continent_resource" : {"name":["content"]},
-                                                    "continent_ecosystem_level" : {"name":["content"]},
-                                    },
+                                        'input_time' : 0,
+                                        'focus_time' : 0,
+                                        'active_time' : 0,
+                                    }
                                 },
                             }
-            self.AI_Perusona = {
-                                    'sample' : {
-                                                "age" : 0,
-                                                "sex" : 'content',
-                                                'personality' : "content",
-                                                'hobby' : 'content',
-                                                'tendency' : 'content',
-                                                'body' : 'content',
-                                                'self_body' : [],
-                                                'self_personality' : [],
-                                                'self_tendency' : [],
-                                                'self_image' : [],
-                                                'note' : [],
-                                            },
-
-                                }
-            self.documents = {
-                                'sample' : {
-                                            'title' : 'content',
-                                            'index' : 'content',
-                                            'text' : 'content',
-                                        },
-                              }
-            self.data = {
-                            'sample' : {
-                                'type' : 'content',
-                            }
-                        }
-            self.timer = {
-                            'name' : {
-                                'input_time' : 0,
-                                'focus_time' : 0,
-                                'active_time' : 0,
-                            }
-                        }
             self.metadata = {
                                 "ProgrameData" : {
                                     'windows_pos' : {
@@ -145,28 +143,37 @@ class ProjectConfig:
                 file.writestr("timer/", "{}")
         elif len(kwargs) == 2 and self.__key_check__(kwargs, ['dir','file']):
             pass
+    def ProjectName(self, name:str):
+        self.title = name
+    def ProjectDir(self, dir:str):
+        self.dir = dir
     def __key_check__(self, meta:dict, keys:list):
         for k in keys:
             if k not in meta.keys():
                 return False
         return True
-    def __meta_check__(self):
-        for k in self.metadata['Project_Files'].keys():
-            if k not in os.listdir(self.dir):
-                self.__MakeMetaGroup__(k)
     def __MakeMetaGroup__(self, nmae:dir):
         os.mkdir(f"{self.dir}/{nmae}")
     def __save_meta__(self):
         if 1 < len(self.metadata_dir.split('/')):
             with open(self.metadata_dir, 'w', encoding='utf-8') as file:
                 json.dump(self.metadata, file)
-    def __open_project__(self):
-        pass
-    def __create_project__(self):
-        os.makedirs(self.dir)
-        with open(f"{self.dir}/METADATA", 'w', encoding='utf-8') as file:
-            json.dump(self.metadata, file)
-        self.__meta_check__()
+    def open_project(self, dir:str, name:str):
+        with zipfile.ZipFile(f"{dir}/{name}", 'r') as file:
+            file_list = file.namelist()
+            tdict = {}
+            for f in file_list:
+                if '/' in f:
+                    print(f)
+                    t = f.split('/')
+                    if t[0] not in tdict.keys():
+                        tdict[t[0]] = {t[0] : {}}
+                    if t[1] not in tdict.keys():
+                        data = file.read(f).decode('utf-8')
+                        tdict[t[0]] = {t[1] : json.loads(data)}
+            self.metadata = json.loads(file.read('METADATA').decode('utf-8'))
+        self.dir = dir
+        self.name = name
     def ProjectFiles(self):
         return self.metadata['Project_Files']
     def ProgrameData(self):
@@ -180,256 +187,20 @@ class ProjectConfig:
         self.metadata['ProgrameData']['windows_scale']['height'] = height
         self.updatebuffer()
     def updatebuffer(self):
-            self.buffer.flush()
-            with zipfile.ZipFile(self.buffer, "w", zipfile.ZIP_DEFLATED) as file:
-                file.writestr('METADATA', self.metadata)
-                for name, context in self.metadata['ProjectItems'].items():
-                    file.writestr('ProjectItems' + name + '/' + context, self.ProjectItems[context])
+        self.buffer = io.BytesIO()
+        with zipfile.ZipFile(self.buffer, "w", zipfile.ZIP_DEFLATED) as file:
+            file.writestr('METADATA', json.dumps(self.metadata, ensure_ascii=False))
+            for name, context in self.metadata['ProjectItems'].items():
+                for c in context:
+                    file.writestr(f"{name}/{c}", json.dumps(self.ProjectItems[name][c], ensure_ascii=False))
     def __del__(self):
-        print(self.dir)
-        if len(self.dir) == 0:
+        self.updatebuffer()
+        print(f"{self.dir}/{self.title}")
+        if len(self.dir) == 0 or len(self.title) == 0:
             pass
         else:
-            with open(self.dir, "wb") as f:
+            with open(f"{self.dir}/{self.title}", "wb") as f:
                 f.write(self.buffer.getvalue())
-"""
-    프로그램 동작에 필요한 json 파일을 관리하는 클래스 입니다.
-    programe_config로 하여 실행되는 OS를 확인하고, OS에 따른 설정을 관리합니다.
-"""
-class config:
-    def __init__(self):
-        self.updated = False
-        self.windows_config = None
-        self.programe_data = None
-        if "Darwin" == platform.system():
-            if 'data' not in os.listdir('./'):
-                os.mkdir('./data')
-            dir_lists = os.listdir('./data')
-            print(dir_lists)
-            self.openError = False
-            if 'windows_config_mac.json' not in dir_lists:
-                self.startWindowsMac()
-            if 'ProjectDirectories_win.json' not in dir_lists:
-                self.programeLoadMac()
-            try:
-                if os.path.isfile('./data/windows_config_mac.json'):
-                    with open('./data/windows_config_mac.json', mode='r', encoding='utf-8') as file:
-                        self.windows_config = json.load(file)
-            except:
-                self.openError = True
-                print(self.openError)
-            try:
-                if os.path.isfile('./data/ProjectDirectories_mac.json'):
-                    with open('./data/ProjectDirectories_mac.json', mode='r', encoding='utf-8') as file:
-                        self.programe_data = json.load(file)
-            except:
-                self.openError = True
-                print(self.openError)
-            self.checkConfig_Mac()
-        elif "Windows" == platform.system():
-            if 'data' not in os.listdir('./'):
-                os.mkdir('./data')
-            dir_lists = os.listdir('./data')
-            self.openError = False
-            if 'windows_config_win.json' not in dir_lists:
-                self.startWindowsWin()
-            if 'ProjectDirectories_win.json' not in dir_lists:
-                self.programeLoadWin()
-            try:
-                if os.path.isfile('./data/windows_config_win.json'):
-                    with open('./data/windows_config_win.json', mode='r', encoding='utf-8') as file:
-                        self.windows_config = json.load(file)
-            except:
-                print('error!')
-            try:
-                if os.path.isfile('./data/ProjectDirectories_win.json'):
-                    with open('./data/ProjectDirectories_win.json', mode='r', encoding='utf-8') as file:
-                        self.programe_data = json.load(file)
-            except:
-                self.openError = True
-            self.checkConfig_Win()
-    # windows_configs_win.json 파일 체크를 수행하는 메소드
-    def startWindowsMac(self):
-        df = {}
-        df['windows_pos_x'] = 100
-        df['windows_pos_y'] = 100
-        df['windows_scale_width'] = 800
-        df['windows_scale_height'] = 650
-        df['language'] = 'ko'
-        df['model'] = 'GPT-OSS:20b'
-        df['treeview_width'] = 80
-        df['treeviwe_height'] = df['windows_scale_width'] / 5
-        df['treeview_height'] = df['windows_scale_height'] - 50
-        with open('./data/windows_config_mac.json', 'w', encoding='utf-8') as file:
-            json.dump(df, file)
-    def programeLoadMac(self):
-        df = {}
-        df['ProjectDirs'] = ['~/Documents']
-        df['LastOpenDir'] = '~/Documents'
-        with open('./data/ProjectDirectories_mac.json', 'w', encoding='utf-8') as file:
-            json.dump(df, file)
-    def startWindowsWin(self):
-        df = {}
-        df['windows_pos_x'] = 100
-        df['windows_pos_y'] = 100
-        df['windows_scale_width'] = 800
-        df['windows_scale_height'] = 650
-        df['language'] = 'ko'
-        df['model'] = 'GPT-OSS:20b'
-        df['treeview_width'] = 80
-        df['treeviwe_height'] = df['windows_scale_width'] / 5
-        df['treeview_height'] = df['windows_scale_height'] - 50
-        with open('./data/windows_config_win.json', 'w', encoding='utf-8') as file:
-            json.dump(df, file)
-        self.windows_config = df
-    # ProjectDirectories_win.json 파일 체크를 수행하는 메소드
-    def programeLoadWin(self):
-        df = {}
-        df['ProjectDirs'] = [r'C:\Users']
-        df['LastOpenDir'] = r'C:\Users'
-        with open('./data/ProjectDirectories_win.json', 'w', encoding='utf-8') as file:
-            json.dump(df, file)
-    # jsonfile을 확인하고, 최종적으로 정정하는 메소드
-    # windows 전용 메소드
-    def checkConfig_Win(self):
-        if self.openError:
-            self.startWindowsWin()
-            self.programeLoadWin()
-            if 'treeview_width' not in self.windows_config.keys():
-                self.windows_config['treeview_width'] = self.windows_config['windows_scale_width'] / 5
-            if 'treeview_height' not in self.windows_config.keys():
-                self.windows_config['treeview_height'] = self.windows_config['windows_scale_height'] - 50
-            if 'widget_align' not in self.windows_config.keys():
-                self.windows_config['widget_align'] = 'left'
-        elif not self.openError and self.windows_config is not None and self.programe_data is not None:
-            if 'treeview_width' not in self.windows_config.keys():
-                self.windows_config['treeview_width'] = self.windows_config['windows_scale_width'] / 5
-            if 'treeview_height' not in self.windows_config.keys():
-                self.windows_config['treeview_height'] = self.windows_config['windows_scale_height'] - 50
-            if 'widget_align' not in self.windows_config.keys():
-                self.windows_config['widget_align'] = 'left'
-            if 'EditTextWindow' not in self.windows_config.keys():
-                self.windows_config['EditTextWindow'] = []
-            if 'create_ai_perusona_window_width' not in self.windows_config.keys():
-                self.windows_config['create_ai_perusona_window_width'] = 500
-            if 'create_ai_perusona_window_height' not in self.windows_config.keys():
-                self.windows_config['create_ai_perusona_window_height'] = 600
-        else:
-            print('None Exception')
-    def find_window_config_keys(self, key:str):
-        return key in self.windows_config.keys()
-    def getCreateAIPerusonaWindowScale(self):
-        return int(self.windows_config['create_ai_perusona_window_width']), int(self.windows_config['create_ai_perusona_window_height'])
-    # jsonFile을 확인하고, 최종적으로 정정하는 메소드
-    # Mac 전용 메소드
-    def checkConfig_Mac(self):
-        print(self.openError)
-        if self.openError:
-            self.startWindowsMac()
-            self.programeLoadMac()
-            if self.windows_config == None:
-                print('Not Dictionary is here')
-            if 'treeview_width' not in self.windows_config.keys():
-                self.windows_config['treeview_width'] = self.windows_config['windows_scale_width'] / 5
-            if 'treeview_height' not in self.windows_config.keys():
-                self.windows_config['treeview_height'] = self.windows_config['windows_scale_height'] - 50
-            if 'widget_align' not in self.windows_config.keys():
-                self.windows_config['widget_align'] = 'left'
-        elif (not self.openError) and (self.windows_config is not None) and (self.programe_data is not None):
-            print(self.windows_config.keys())
-            if 'treeview_width' not in self.windows_config.keys():
-                self.windows_config['treeview_width'] = int(self.windows_config['windows_scale_width'] / 5)
-            if 'treeview_height' not in self.windows_config.keys():
-                self.windows_config['treeview_height'] = int(self.windows_config['windows_scale_height'] - 50)
-            if 'widget_align' not in self.windows_config.keys():
-                self.windows_config['widget_align'] = 'left'
-        if self.windows_config is None:
-            print('windows_config None')
-        if self.programe_data is None:
-            print('programe_data None')
-    # pos를 업데이트하는 메소드
-    def updatePosition(self, x:int, y:int):
-        if x != self.windows_config['windows_pos_x'] or y != self.windows_config['windows_pos_y']:
-            self.windows_config['windows_pos_x'] = x
-            self.windows_config['windows_pos_y'] = y
-            self.updated = True
-        else:
-            self.update = False
-    # scale을 업데이트하는 메소드
-    def updateScale(self, width:int, height:int):
-        if width != self.windows_config['windows_scale_width'] or height != self.windows_config['windows_scale_height']:
-            self.windows_config['windows_scale_width'] = width
-            self.windows_config['windows_scale_height'] = height
-            self.update = True
-        else:
-            self.updated = False
-    def save_window_data(self):
-        with open('./data/windows_config_win.json', 'w', encoding='utf-8') as file:
-            json.dump(self.windows_config, file)
-    def getScale(self):
-        return self.windows_config['windows_scale_width'], self.windows_config['windows_scale_height']
-    # ProjectDir을 추가하는 메소드
-    def AppenddProjectDir(self, dir:str):
-        dirs = list(self.programe_data['ProjectDirs'])
-        print(dirs)
-        if dir in dirs:
-            pass
-        else:
-            dirs.append(dir)
-            self.programe_data['ProjectDirs'] = dirs
-        if dir != self.programe_data['LastOpenDir']:
-            self.programe_data['LastOpenDir'] = dir
-        self.updated = True
-    # TreeView의 width와 height를 업데이트하는 메소드
-    def UpdateTreeViewScale(self, width:int, height:int):
-        self.windows_config['treeview_width'] = width
-        self.windows_config['treeview_height'] = height
-    # 포지션을 확인하는 메소드
-    def getPosition(self):
-        return self.windows_config['windows_pos_x'], self.windows_config['windows_pos_y']
-    # windows_config 태그를 체크하는 메소드
-    def checkTag(self, key:str, data):
-        tags = self.windows_config.keys()
-        if key not in tags:
-            self.windows_config[key] = data
-            return True
-        else:
-            return False
-    # windows_config 태그 키를 통해서 데이터를 반환하는 메소드
-    def getValueToTag(self, key:str):
-        tags = self.windows_config.keys()
-        if key not in tags:
-            return None
-        else:
-            return self.windows_config[key]
-    def Save_config(self):
-        if self.updated and (not self.openError) and platform.system() == 'Darwin' and self.updated:
-            print('Update')
-            with open('./data/windows_config_mac.json', 'w', encoding='utf-8') as file:
-                json.dump(self.windows_config, file)
-            print(self.windows_config)
-            with open('./data/ProjectDirectories_mac.json', 'w', encoding='utf-8') as file:
-                json.dump(self.programe_data, file)
-        elif self.updated and (not self.openError) and platform.system() == "Windows" and self.updated:
-            with open('./data/windows_config_win.json', 'w', encoding='utf-8') as file:
-                json.dump(self.windows_config, file)
-            with open('./data/ProjectDirectories_win.json', 'w', encoding='utf-8') as file:
-                json.dump(self.programe_data, file)
-    # 객체가 삭제될 때 최종적으로 호출하는 메소드
-    def __del__(self):
-        if self.updated and (not self.openError) and platform.system() == 'Darwin' and self.updated:
-            print('Update')
-            with open('./data/windows_config_mac.json', 'w', encoding='utf-8') as file:
-                json.dump(self.windows_config, file)
-            print(self.windows_config)
-            with open('./data/ProjectDirectories_mac.json', 'w', encoding='utf-8') as file:
-                json.dump(self.programe_data, file)
-        elif self.updated and (not self.openError) and platform.system() == "Windows" and self.updated:
-            with open('./data/windows_config_win.json', 'w', encoding='utf-8') as file:
-                json.dump(self.windows_config, file)
-            with open('./data/ProjectDirectories_win.json', 'w', encoding='utf-8') as file:
-                json.dump(self.programe_data, file)
-
 """
     AI_Perusona를 관리하는 클래스이다.
     이 클래스는 AI의 Perusona를 직접 관리하는 클래스이다.

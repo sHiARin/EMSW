@@ -169,8 +169,6 @@ class EMSW(QMainWindow):
         self.__create_new_profile__(file_path[0])
     def __fixed__update__(self):
         self.__update_windows_pos_scale__()
-        if not os.path.exists(self.project.dir):
-            
     def __update__(self):
         self.__fixed__update__()
     def __last_update__(self):
