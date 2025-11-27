@@ -150,6 +150,9 @@ class ProgrameAction(Enum):
     # JsonFile에 오류가 발생했습니다.
     ErrorFileJson = 0xfff045
     # 파일을 저장하라는 메시지를 보냅니다.
+    SaveTheFile = 0xfff046
+    # 프로그램의 위치를 변경합니다.
+    ChangeProgramePosition = 0xfff047
 
 EVENT_MAPPING = {
     ProgrameAction.ProgrameStart: "ProgrameAction",

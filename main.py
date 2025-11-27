@@ -4,16 +4,14 @@ from PySide6.QtWidgets import QApplication
 
 import sys, os, json
 
-def main():
-    app = QApplication(sys.argv)
-    if 'ProjectData' not in os.listdir('./'):
-        m_app = EMSW(ProjectConfig())
-    else:
-        with open('./ProjectData', 'r', encoding='utf-8') as file:
-            data = file.read()
-            key = data.keys()
-            if 'LastOpenProject' in 
-    app.exec()
+if __name__ == "__main__":
 
-if __name__ == '__main__':
-    main()
+    app = QApplication(sys.argv)
+    
+    # 프로젝트 로드 시뮬레이션
+    project = ProjectConfig()
+    
+    window = EMSW(project)
+    window.projectOpen = True # 테스트를 위해 강제 오픈 설정
+    
+    sys.exit(app.exec())

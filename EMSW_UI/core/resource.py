@@ -13,7 +13,7 @@ from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_community.chat_models import ChatOllama
 
-import platform, os, json, zipfile, io
+import platform, os, json, zipfile, io, datetime
 
 """
     중앙에서 시그널 정보를 처리하는 싱글톤 클래스
@@ -25,7 +25,9 @@ class GlobalSignalHub(QObject):
     programe_signal = Signal(ProgrameAction)
     # global project dir로 공유하는 메소드
     dir = Signal(str)
-
+    windows_data = {'x' : 100, 'y' : 100, 'width' : 600, 'height' : 800}
+    # 현재 활성화된 인스턴스를 보관 (Project Config 객체)
+    active_project = None
     # 싱글턴 패턴
     _instance = None
     @staticmethod
@@ -39,15 +41,15 @@ class GlobalSignalHub(QObject):
     프로젝트를 생성할때 최초 생성되고, 프로젝트 내의 정보를 json으로 읽어들입니다.
     프로젝트 파일은 .emsw로 하여 ziplib으로 관리합니다.
 """
+
 class ProjectConfig:
     def __init__(self, **kwargs):
         self.buffer = io.BytesIO()
         self.Save = False
         self.dir = ''
         self.title = ''
-        if (len(kwargs) == 0):
-            self.ProjectItems = {
-                                    'AI_Data' : {
+        self.ProjectItems = {
+                                'AI_Data' : {
                                         'sample' : {
                                                 "date" : {
                                                     "time" : {
@@ -113,26 +115,27 @@ class ProjectConfig:
                                     }
                                 },
                             }
-            self.metadata = {
-                                "ProgrameData" : {
-                                    'windows_pos' : {
-                                                        'x':100,
-                                                        'y':100
-                                                    },
-                                    'windows_scale' : {
-                                                    'width':800,
-                                                    'height':500
+        self.metadata = {
+                            "ProgrameData" : {
+                                'windows_pos' : {
+                                                    'x':100,
+                                                    'y':100
                                                 },
-                                },
-                                "ProjectItems" : {
-                                    "AI_Perusona" : ['sample'],
-                                    "AI_World" : ['sample'],
-                                    "AI_Data" : ['sample'],
-                                    "documents" : ['sample'],
-                                    "data" : ['sample'],
-                                    "timer" : ['sample'],
-                                },
-                            }
+                                'windows_scale' : {
+                                                'width':800,
+                                                'height':500
+                                            },
+                            },
+                            "ProjectItems" : {
+                                "AI_Perusona" : ['sample'],
+                                "AI_World" : ['sample'],
+                                "AI_Data" : ['sample'],
+                                "documents" : ['sample'],
+                                "data" : ['sample'],
+                                "timer" : ['sample'],
+                            },
+                        }
+        if (len(kwargs) == 0):
             with zipfile.ZipFile(self.buffer, "w", zipfile.ZIP_DEFLATED) as file:
                 file.writestr("METADATA", f"{self.metadata}")
                 file.writestr("AI_Perusona/", "{}")
@@ -142,7 +145,90 @@ class ProjectConfig:
                 file.writestr("data/", "{}")
                 file.writestr("timer/", "{}")
         elif len(kwargs) == 2 and self.__key_check__(kwargs, ['dir','file']):
-            pass
+            self.open_project(kwargs['dir'], kwargs['file'])
+            self.updatebuffer()
+    def get_chat_history(self, name:str):
+        """
+        특정 AI 페르소나의 채팅 기록을 시간 순서대로 정렬하여 반환
+        Return : list of dict [{'sender' : 'user' | 'ai', 'msg':'text, 'time':str}, ...]
+        """
+        chat_list = []
+        ai_data_root = self.ProjectItems.get('AI_Data, {}')
+        target_ai = ai_data_root.get(name, [])
+
+        if not target_ai:
+            return []
+        dates = sorted(target_ai.keys())
+        
+        for date_key in dates:
+            if date_key == 'summary': continue # summary 키 제외
+            
+            time_data = target_ai[date_key]
+            # 3. 시간별 정렬 (Keys: HH:MM:SS)
+            times = sorted(time_data.keys())
+            
+            for time_key in times:
+                content = time_data[time_key]
+                
+                # 구조: { 'name': 'ai_msg', 'user': 'user_msg' }
+                # 시간 순서상 User가 먼저 말하고 AI가 답했다고 가정하거나,
+                # 데이터가 있는 것만 리스트에 추가
+                
+                # 사용자 메시지
+                if 'user' in content and content['user']:
+                    chat_list.append({
+                        'sender': 'user',
+                        'msg': content['user'],
+                        'timestamp': f"{date_key} {time_key}"
+                    })
+                
+                # AI 메시지 (key가 'name'이라고 되어있는 부분)
+                if 'name' in content and content['name']:
+                    chat_list.append({
+                        'sender': 'ai',
+                        'msg': content['name'],
+                        'timestamp': f"{date_key} {time_key}"
+                    })
+                    
+        return chat_list
+    def add_chat_message(self, ai_name: str, sender_type: str, message: str):
+        """
+        채팅 메시지를 구조에 맞게 저장하고 버퍼를 갱신함
+        sender_type: 'user' or 'ai'
+        """
+        now = datetime.datetime.now()
+        date_str = now.strftime("%Y-%m-%d")
+        time_str = now.strftime("%H:%M:%S")
+
+        # 1. 경로 확보 (AI_Data -> ai_name -> date -> time)
+        if 'AI_Data' not in self.ProjectItems:
+            self.ProjectItems['AI_Data'] = {}
+            
+        if ai_name not in self.ProjectItems['AI_Data']:
+            self.ProjectItems['AI_Data'][ai_name] = {}
+            
+        if date_str not in self.ProjectItems['AI_Data'][ai_name]:
+            self.ProjectItems['AI_Data'][ai_name][date_str] = {}
+            
+        # 2. 해당 시간 데이터 생성
+        # 같은 초(sec)에 대화가 오갈 수 있으므로, 기존 키가 있으면 병합하거나 덮어씀
+        current_block = self.ProjectItems['AI_Data'][ai_name][date_str].get(time_str, {})
+        
+        if sender_type == 'user':
+            current_block['user'] = message
+            # AI 응답 자리가 없으면 빈칸으로 두거나 유지
+            if 'name' not in current_block:
+                current_block['name'] = ""
+        else:
+            current_block['name'] = message # 'name' 키가 AI의 답변 내용
+            if 'user' not in current_block:
+                current_block['user'] = ""
+
+        self.ProjectItems['AI_Data'][ai_name][date_str][time_str] = current_block
+        
+        # 3. 변경 사항을 zip buffer에 반영 (ProjectConfig의 updatebuffer 호출)
+        self.updatebuffer()
+        # print(f"Saved: {self.ProjectItems['AI_Data'][ai_name][date_str][time_str]}")
     def ProjectName(self, name:str):
         self.title = name
     def ProjectDir(self, dir:str):
@@ -152,6 +238,15 @@ class ProjectConfig:
             if k not in meta.keys():
                 return False
         return True
+    def change_project_title(self, title):
+        old_path = f"{self.dir}/{self.title}"
+        self.title = title
+        if os.path.exists(old_path) and self.title:
+            new_path = f"{self.dir}/{self.title}"
+            try:
+                os.rename(old_path, new_path)
+            except OSError as e:
+                print("이름 변경 실패!")
     def __MakeMetaGroup__(self, nmae:dir):
         os.mkdir(f"{self.dir}/{nmae}")
     def __save_meta__(self):
@@ -178,6 +273,18 @@ class ProjectConfig:
         return self.metadata['Project_Files']
     def ProgrameData(self):
         return self.metadata['ProgrameData']
+    def getPosition(self):
+        return [self.metadata['ProgrameData']['windows_pos']['x'], self.metadata['ProgrameData']['windows_pos']['y']]
+    def getScale(self):
+        return [self.metadata['ProgrameData']['windows_scale']['width'], self.metadata['ProgrameData']['windows_scale']['height']]
+    def setHeight(self, height):
+        print(self.metadata['ProgrameData']['windows_scale']['height'], height)
+        self.metadata['ProgrameData']['windows_scale']['height'] = height
+        self.updatebuffer()
+    def setWidth(self, width):
+        print(self.metadata['ProgrameData']['windows_scale']['width'], width)
+        self.metadata['ProgrameData']['windows_scale']['width'] = width
+        self.updatebuffer()
     def updatePosition(self, x, y):
         self.metadata['ProgrameData']['windows_pos']['x'] = x
         self.metadata['ProgrameData']['windows_pos']['y'] = y
