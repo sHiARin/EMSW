@@ -1,16 +1,17 @@
 from PySide6.QtWidgets import (QMainWindow, QWidget, QFileDialog,
                                QVBoxLayout, QHBoxLayout, QPushButton,
                                QLabel, QLineEdit, QMessageBox,
-                               QDialog, QInputDialog, QTreeView,
-                               QAbstractItemView, QMenu, QSpinBox,
-                               QCheckBox)
+                               QDialog, QAbstractItemView, QMenu,
+                               QSpinBox, QCheckBox, QInputDialog,
+                               QTableWidget, QFrame, QHeaderView,
+                               QTableWidgetItem)
 from PySide6.QtGui import (QKeyEvent, QAction, QStandardItemModel,
                            QStandardItem, QPalette, QColor,
-                           QGuiApplication)
+                           QGuiApplication, QFont)
 from PySide6.QtCore import (Qt, Signal, QTimer,
                             QModelIndex, QObject)
 from Config.config import ProgrameAction, ProgrameEventChecker
-from EMSW_UI.core.resource import ProjectConfig, AI_Perusona, Display, GlobalSignalHub
+from EMSW_UI.core.resource import ProjectConfig, Display, GlobalSignalHub
 
 import os
 
@@ -19,7 +20,6 @@ class EMSW(QMainWindow):
         super().__init__()
         self.projectOpen = False
         self.project = project
-        print(self.project.dir)
         self.new_ai_config = None
         self.ActionRoop = {
                                 ProgrameAction.ProgrameStart: self.__get_activate_window_position__,
@@ -33,7 +33,7 @@ class EMSW(QMainWindow):
                             ProgrameAction.ErrorFileJson : self.__jsonFileError_notice__,
                         }
         self.ForceUpdate = {
-            "size" : self.update_size,
+            "position" : self.update_position,
             "scale" : self.update_scale,
             "title" : self.update_title,
             "height" : self.setHeight,
@@ -45,27 +45,19 @@ class EMSW(QMainWindow):
 
         self.hub.programe_signal.emit(ProgrameAction.ProgrameStart)
 
+    def update_position(self, x:int, y:int):
+        self.project.updatePosition(x, y)
     def update_title(self, title:str):
         self.setWindowTitle(title)
-
-    def update_size(self, w:int, h:int):
-        self.move(w, h)
-
     def update_scale(self, width:int, height:int):
-        self.window().setFixedSize(width, height)
-
+        self.project.updateScale(width, height)    
     def update_title(self, title:str):
         self.setWindowTitle(title)
         self.project.change_project_title(title)
-
     def setHeight(self, h:int):
-        self.window().setFixedHeight(h)
         self.project.setHeight(h)
-
     def setWidth(self, w:int):
-        self.window().setFixedWidth(w)
         self.project.setWidth(w)
-
     # 활성화된 모니터의 포지션을 식별합니다.
 
     def __get_activate_window_position__(self):
@@ -192,47 +184,57 @@ class EMSW(QMainWindow):
         self.hub.programe_signal.emit(ProgrameAction.OpenProjectSuccess)
         print(self.project.getPosition())
     def __ProjectOpening__(self):
-        self.force_update()
+        pass
     # 캐릭터 매뉴를 정의하는 메소드
     def __set_character_menu__(self, characterMenu: QMenu):
         new_character = self.__add_menu_action__('새 캐릭터')
-        new_character.triggered.connect(self.__new_character_action__)
+        new_character.triggered.connect(self.__create_persona__)
         load_character = self.__add_menu_action__("캐릭터 불러오기")
+        load_character.triggered.connect(self.__load_perusona__)
+        delete_character = self.__add_menu_action__("캐릭터 삭제하기")
+        delete_character.triggered.connect(self.__delete_perusona__)
         build_a_world = self.__add_menu_action__('세계관 구축')
         export_file = self.__add_menu_action__('세계관 내보내기')
         load_file = self.__add_menu_action__('세계관 불러오기')
         characterMenu.addAction(new_character)
         characterMenu.addAction(load_character)
+        characterMenu.addAction(delete_character)
         characterMenu.addAction(build_a_world)
         characterMenu.addAction(export_file)
         characterMenu.addAction(load_file)
     def __set_view_menu__(self, views: QMenu):
         ChatView = self.__add_menu_action__('AI 챗 뷰 추가')
         views.addAction(ChatView)
-    # 새 AI 설정 창을 여는 메소드
-    def __create_persona__(self):
-        pass
+    # project Update
     def update_Title(self, title:str):
         self.setWindowTitle(title)
-    # 새 AI 프로파일을 만드는 메소드
-    def __create_new_profile__(self):
-        tdir = '/'.join([t for t in dir.split('/')][0:-1])
-        print(tdir)
-        if os.path.exists(tdir):
-            self.new_ai_config = AI_Perusona(self.project.dir)
-            self.hub.programe_signal.connect(self.__Action_method__)
-            self.hub.message.emit(dir)
-            self.hub.programe_signal.emit(ProgrameAction.CreateAIPerusona)
+    # 새 AI 설정 창을 여는 메소드
+    def __create_persona__(self):
+        self.newPersona = True
+        ok = self.SetName()
+        if not ok:
+            QMessageBox.information(self, "생성 취소", "캐릭터 생성을 취소하였습니다.")
+            self.hub.programe_signal.emit(ProgrameAction.CancleCreateAIPerusona)
+            return
+        else:
+            print('이름이 설정되었습니다.')
+    def __load_perusona__(self):
+        print('load perusona')
+    def __delete_perusona__(self):
+        print('delete perusona')
+        deleteView = Persona_delete_window(self.project)
     # AI 캐릭터를 만드는 동작 메소드
-    def __new_character_action__(self):
-        file_path = QFileDialog.getSaveFileName(self, "AI 프로파일 만들기", "", "Profile File(*.profile)")
-        print(file_path[0])
-        self.__create_new_profile__(file_path[0])
-    def force_update(self, key:str, value:list):
-        if key in ['size', 'scale'] and len() == 2:
-            self.ForceUpdate[key] = value[0], value[1]
-        if key in ['height', 'title', 'width'] and len() ==2:
-            self.ForceUpdate[key](value[0])
+    def SetName(self):
+        text, ok = QInputDialog.getText(self, '이름 입력', "이름을 입력해 주세요.")
+        if ok and text:
+            ok = not self.project.SearchPerusonaName(name=text)
+            if ok:
+                self.project.AppendPerusonaName(text)
+                return True
+            else:
+                return False
+        elif not ok:
+            return False
     def __fixed__update__(self):
         if not self.projectOpen:
             self.__update_windows_pos_scale__()
@@ -248,3 +250,176 @@ class EMSW(QMainWindow):
         mainboard.setLayout(hLayout)
         self.setCentralWidget(mainboard)
         self.show()
+
+class Persona_delete_window(QWidget):
+    def __init__(self, project:ProjectConfig):
+        super().__init__()
+        self.resize(300, 600)
+        self.setStyleSheet("background: #F0F2F5")
+
+        self.init_ui()
+    def init_ui(self):
+        # 메인 레이아웃
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(20, 20, 20, 20)
+        main_layout.setSpacing(15)
+
+        # ---------------------------------------------------------
+        # 1. 상단 헤더 및 검색 영역
+        # ---------------------------------------------------------
+        top_frame = QFrame()
+        top_frame.setStyleSheet("background-color: white; border-radius: 10px;")
+        top_layout = QHBoxLayout(top_frame)
+        top_layout.setContentsMargins(15, 10, 15, 10)
+
+        # 제목 라벨
+        title_label = QLabel("데이터 목록")
+        title_label.setFont(QFont("Arial", 14, QFont.Bold))
+        title_label.setStyleSheet("color: #333; border: none;")
+
+        # 검색창
+        self.search_input = QLineEdit()
+        self.search_input.setPlaceholderText("검색어 입력...")
+        self.search_input.setStyleSheet("""
+            QLineEdit {
+                border: 1px solid #CCC;
+                border-radius: 5px;
+                padding: 5px 10px;
+                background-color: #FAFAFA;
+                font-size: 13px;
+            }
+            QLineEdit:focus {
+                border: 1px solid #ABC1D1;
+            }
+        """)
+
+        # 검색 버튼
+        search_btn = QPushButton("검색")
+        search_btn.setFixedSize(60, 30)
+        search_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #ABC1D1;
+                color: white;
+                font-weight: bold;
+                border: none;
+                border-radius: 5px;
+            }
+            QPushButton:hover {
+                background-color: #96AAB9;
+            }
+        """)
+
+        # 새로고침 버튼
+        refresh_btn = QPushButton("새로고침")
+        refresh_btn.setFixedSize(80, 30)
+        refresh_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #FEE500;
+                color: #333;
+                font-weight: bold;
+                border: none;
+                border-radius: 5px;
+            }
+            QPushButton:hover {
+                background-color: #F2D800;
+            }
+        """)
+
+        top_layout.addWidget(title_label)
+        top_layout.addStretch() # 빈 공간
+        top_layout.addWidget(self.search_input)
+        top_layout.addWidget(search_btn)
+        top_layout.addWidget(refresh_btn)
+
+        main_layout.addWidget(top_frame)
+
+        # ---------------------------------------------------------
+        # 2. 메인 데이터 테이블 (QTableWidget)
+        # ---------------------------------------------------------
+        self.table = QTableWidget()
+        
+        # [테이블 스타일링]
+        self.table.setAlternatingRowColors(True) # 줄무늬 배경
+        self.table.setSelectionBehavior(QAbstractItemView.SelectRows) # 행 단위 선택
+        self.table.setEditTriggers(QAbstractItemView.NoEditTriggers) # 읽기 전용
+        self.table.verticalHeader().setVisible(False) # 왼쪽 행 번호 숨김
+        self.table.setShowGrid(False) # 격자선 숨김 (깔끔하게)
+        
+        # CSS 스타일시트 (헤더, 셀 디자인)
+        self.table.setStyleSheet("""
+            QTableWidget {
+                background-color: white;
+                border: 1px solid #DDD;
+                border-radius: 10px;
+                gridline-color: #EEE;
+                font-size: 12px;
+            }
+            QTableWidget::item {
+                padding: 10px;
+                border-bottom: 1px solid #F0F0F0;
+            }
+            QTableWidget::item:selected {
+                background-color: #E3F2FD;
+                color: #000;
+            }
+            QHeaderView::section {
+                background-color: #ABC1D1;
+                color: white;
+                padding: 8px;
+                border: none;
+                font-weight: bold;
+                font-size: 13px;
+            }
+        """)
+
+        # 임시 컬럼 설정 (나중에 데이터에 맞춰 변경)
+        columns = ["카테고리", "항목(Key)", "값(Value)", "상세 설명", "수정일"]
+        self.table.setColumnCount(len(columns))
+        self.table.setHorizontalHeaderLabels(columns)
+
+        # 헤더 늘리기 설정 (마지막 컬럼 채우기 등)
+        header = self.table.horizontalHeader()
+        header.setSectionResizeMode(QHeaderView.Interactive) # 사용자가 조절 가능
+        header.setSectionResizeMode(2, QHeaderView.Stretch)  # '값' 컬럼을 꽉 채움
+
+        main_layout.addWidget(self.table)
+
+        # ---------------------------------------------------------
+        # 3. 하단 상태 바 (간단 정보)
+        # ---------------------------------------------------------
+        status_layout = QHBoxLayout()
+        self.count_label = QLabel("총 0개의 항목")
+        self.count_label.setStyleSheet("color: #666; font-size: 12px;")
+        
+        close_btn = QPushButton("닫기")
+        close_btn.setFixedSize(80, 30)
+        close_btn.clicked.connect(self.close)
+        close_btn.setStyleSheet("background-color: #EEE; border-radius: 5px;")
+
+        status_layout.addWidget(self.count_label)
+        status_layout.addStretch()
+        status_layout.addWidget(close_btn)
+
+        main_layout.addLayout(status_layout)
+
+        self.show()
+    # ---------------------------------------------------------
+    # 데이터 채우기 (UI 확인용 더미 데이터 함수)
+    # ---------------------------------------------------------
+    def load_dummy_data(self):
+        data = [
+            ("AI_Data", "sample_user", "홍길동", "테스트 유저입니다", "2024-05-20"),
+            ("AI_World", "country", "Korea", "인구 5천만", "2024-05-21"),
+            ("Config", "Version", "1.0.2", "현재 버전", "2024-05-22"),
+            ("Timer", "Focus", "3600s", "집중 시간 데이터", "2024-05-22"),
+            ("Log", "Error", "NullPointer", "치명적 오류 발생", "2024-05-23"),
+        ]
+        
+        self.table.setRowCount(len(data))
+        self.count_label.setText(f"총 {len(data)}개의 항목")
+
+        for row_idx, row_data in enumerate(data):
+            for col_idx, value in enumerate(row_data):
+                item = QTableWidgetItem(str(value))
+                item.setTextAlignment(Qt.AlignCenter if col_idx != 2 else Qt.AlignLeft|Qt.AlignVCenter)
+                self.table.setItem(row_idx, col_idx, item)

@@ -79,80 +79,84 @@ class ProgrameAction(Enum):
     FinishedLoadLLM = 0xfff023
     # AI의 페르소나를 제작합니다.
     CreateAIPerusona = 0xfff024
+    # AI의 페르소나가 제작취소되었습니다.
+    CancleCreateAIPerusona = 0xfff025
     # AI의 이름을 설정해주세요.
-    NeedToAIName = 0xfff025
+    NeedToAIName = 0xfff026
     # AI의 이름을 설정했습니다.
-    SetAIPerusonaName = 0xfff026
+    SetAIPerusonaName = 0xfff027
     # AI의 성별을 설정해주세요.
-    NeedToAISex = 0xfff027
+    NeedToAISex = 0xfff028
     # AI의 성별을 설정했습니다.
-    SetAIPerusonaSex = 0xfff028
+    SetAIPerusonaSex = 0xfff029
     # AI의 연령을 설정해주세요.
-    NeedToAIAge = 0xfff029
+    NeedToAIAge = 0xfff02a
     # AI의 연령을 설정했습니다.
-    SetAIPerusonaAge = 0xfff02a
+    SetAIPerusonaAge = 0xfff02b
     # AI의 성격을 설정해 주세요.
-    NeedToAIPersonality = 0xfff02b
+    NeedToAIPersonality = 0xfff02c
     # AI의 성격을 설정했습니다.
-    SetAIPerusonaPersonality = 0xfff02c
+    SetAIPerusonaPersonality = 0xfff02d
     # AI의 성향을 설정해 주세요.
-    NeedToAITendency = 0xfff02d
+    NeedToAITendency = 0xfff02e
     # AI의 성향을 설정했습니다.
-    SetAIPerusonaTendency = 0xfff02e
+    SetAIPerusonaTendency = 0xfff02f
     # AI의 취미를 설정해 주세요.
-    NeedToAIHubby = 0xfff02f
+    NeedToAIHubby = 0xfff030
     # AI의 취미를 설정했습니다.
-    SetAIPerusonaHubby = 0xfff030
+    SetAIPerusonaHubby = 0xfff031
     # AI의 외형을 설정해 주세요
-    NeedToAIBody = 0xfff031
+    NeedToAIBody = 0xfff032
     # AI의 외형을 설정했습니다.
-    SetAIPerusonaBody = 0xfff032
+    SetAIPerusonaBody = 0xfff033
     # AI가 스스로의 성격을 생각합니다.
-    ThinkPersonalityAISelf = 0xfff033
+    ThinkPersonalityAISelf = 0xfff034
     # AI의 성격을 정의합니다.
-    AIDefineSelfPersonality = 0xfff034
+    AIDefineSelfPersonality = 0xfff035
     # AI의 성격을 고칩니다.
-    FixedAIDefineSelfPersonality = 0xfff035
+    FixedAIDefineSelfPersonality = 0xfff036
     # AI가 스스로의 성격을 생각합니다.
-    ThinkTendencyAISelf = 0xfff036
+    ThinkTendencyAISelf = 0xfff037
     # AI의 성향을 정의합니다.
-    AIDefineSelfTendency = 0xfff037
+    AIDefineSelfTendency = 0xfff038
     # AI의 성향을 고칩니다.
-    FixedAIDefineSelfTendency = 0xfff038
+    FixedAIDefineSelfTendency = 0xfff039
     # AI가 스스로의 외형을 생각합니다.
-    ThinkBodyAISelf = 0xfff039
+    ThinkBodyAISelf = 0xfff03a
     # AI의 외형을 정의합니다.
-    AIDefineSelfBody = 0xfff03a
+    AIDefineSelfBody = 0xfff03b
     # AI의 외형을 고칩니다.
-    FixedAIDefineSelfBody = 0xfff03b
+    FixedAIDefineSelfBody = 0xfff03c
     # AI가 스스로의 자아를 생각합니다.
-    ThinkSelfImageAISelf = 0xfff03c
+    ThinkSelfImageAISelf = 0xfff03d
     # AI의 자아를 정의합니다.
-    AIDefineSelfImage = 0xfff03d
+    AIDefineSelfImage = 0xfff03e
     # AI의 자아를 고칩니다.
-    FixedAIDefineSelfImage = 0xfff03e
+    FixedAIDefineSelfImage = 0xfff03f
     # 다음 항목으로 넘어간다.
-    PassNextArticles = 0xfff03f
+    PassNextArticles = 0xfff040
     # AI의 페르소나가 완성되었습니다.
-    FinishedCreationAIPerusona = 0xfff040
+    FinishedCreationAIPerusona = 0xfff041
     # AI에게 메시지를 보냈습니다.
-    SendMessageLLM = 0xfff041
+    SendMessageLLM = 0xfff042
     # AI가 답변을 생성했습니다.
-    CreateAnswerLLM = 0xfff042
+    CreateAnswerLLM = 0xfff043
     # AI가 대화 내용을 정리중입니다.
-    ArrangementOfTalk = 0xfff043
+    ArrangementOfTalk = 0xfff044
     # 글로벌 룰을 어겼는지 검사중입니다.
-    CheckingGlobalRule = 0xfff044
+    CheckingGlobalRule = 0xfff045
     # 다시 생성합니다.
-    Regenerator = 0xfff045
+    Regenerator = 0xfff046
     # AI 페르소나를 다시 만드세요.
-    RemakeAIPerusona = 0xfff044
+    RemakeAIPerusona = 0xfff047
+    # AI 패르소나를 불러옵니다.
+    LoadAIPerusona = 0xfff048
     # JsonFile에 오류가 발생했습니다.
-    ErrorFileJson = 0xfff045
+    ErrorFileJson = 0xfff049
     # 파일을 저장하라는 메시지를 보냅니다.
-    SaveTheFile = 0xfff046
+    SaveTheFile = 0xfff04a
     # 프로그램의 위치를 변경합니다.
-    ChangeProgramePosition = 0xfff047
+    ChangeProgramePosition = 0xfff04b
 
 EVENT_MAPPING = {
     ProgrameAction.ProgrameStart: "ProgrameAction",

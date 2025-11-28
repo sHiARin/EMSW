@@ -4,7 +4,7 @@
     개발 당시의 컴퓨터 스팩은 ultra 9 285k, ram 64, RTX 5060ti 16gb, ssd 1tb(main), ssd 2tb(sub), ssd 1tb(extract disk)이며, macmini m2 pro 16gb, 512gb 이다.
 """
 
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import (QApplication, QInputDialog)
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtCore import Signal, QObject
 from Config.config import ProgrameAction
@@ -26,8 +26,6 @@ class GlobalSignalHub(QObject):
     # global project dir로 공유하는 메소드
     dir = Signal(str)
     windows_data = {'x' : 100, 'y' : 100, 'width' : 600, 'height' : 800}
-    # 현재 활성화된 인스턴스를 보관 (Project Config 객체)
-    active_project = None
     # 싱글턴 패턴
     _instance = None
     @staticmethod
@@ -300,6 +298,16 @@ class ProjectConfig:
             for name, context in self.metadata['ProjectItems'].items():
                 for c in context:
                     file.writestr(f"{name}/{c}", json.dumps(self.ProjectItems[name][c], ensure_ascii=False))
+    def SearchPerusonaName(self, name:str):
+        return name in self.ProjectItems['AI_Perusona'].keys()
+    def AppendPerusonaName(self, name:str):
+        self.ProjectItems['AI_Perusona'].keys()
+        if name in self.ProjectItems['AI_Perusona'].keys():
+            self.updatebuffer()
+            return True
+        else:
+            return False
+
     def __del__(self):
         self.updatebuffer()
         print(f"{self.dir}/{self.title}")
@@ -308,101 +316,6 @@ class ProjectConfig:
         else:
             with open(f"{self.dir}/{self.title}", "wb") as f:
                 f.write(self.buffer.getvalue())
-"""
-    AI_Perusona를 관리하는 클래스이다.
-    이 클래스는 AI의 Perusona를 직접 관리하는 클래스이다.
-"""
-class AI_Perusona:
-    def __init__(self, dir:str):
-        self.dir = dir
-        print(dir)
-        self.open_files()
-    def open_files(self):
-        if os.path.exists(self.dir):
-            try:
-                with open(self.dir, 'r', encoding='utf-8') as file:
-                    self.data = json.load(file)
-            except json.JSONDecodeError:
-                GlobalSignalHub.instance().programe_signal.emit(ProgrameAction.FileJsonError)
-                GlobalSignalHub.instance().message.emit(self.dir)
-        elif not os.path.exists(self.dir):
-            if os.path.exists('/'.join(self.dir.split('/')[0:-1])):
-                self.data = {}
-                self.data['name'] = ''
-                self.data['age'] = ''
-                self.data['sex'] = ''
-                self.data['personality'] = ''
-                self.data['hobby'] = []
-                self.data['tendency'] = ''
-                self.data['body'] = []
-                self.data['self_personality'] = ''
-                self.data['self_tendency'] = ''
-                self.data['self_body'] = ''
-                self.data['self_image'] = ''
-                self.save_data()
-        else:
-            return False
-    def set_name(self, name:list):
-        self.data['name'] = name
-        self.save_data()
-    def get_name(self):
-        return self.data['name']
-    def set_sex(self, sex:list):
-        self.data['sex'] = sex
-        self.save_data()
-    def get_sex(self):
-        return self.data['sex']
-    def set_age(self, age:int):
-        self.data['age'] = age
-        self.save_data()
-    def get_age(self):
-        return self.data['age']
-    def set_personality(self, personality:list):
-        self.data['personality'] = personality
-        self.save_data()
-    def get_personality(self):
-        return self.data['personality']
-    def set_hobby(self, hobby:list):
-        self.data['hobby'] = hobby
-        self.save_data()
-    def get_hobby(self):
-        return self.data['hobby']
-    def set_Tendency(self, tendency:list):
-        self.data['tendency'] = tendency
-        self.save_data()
-    def get_Tendency(self):
-        return self.data['tendency']
-    def set_body(self, body:list):
-        self.data['body'] = body
-        self.save_data()
-    def get_body(self):
-        return self.data['body']
-    def set_self_personality(self, personality:str):
-        self.data['self_personality'] = personality
-        self.save_data()
-    def get_self_personality(self):
-        return self.data['self_personality']
-    def set_self_tendency(self, tendency:str):
-        self.data['self_tendency'] = tendency
-        self.save_data()
-    def get_self_tendency(self):
-        return self.data['self_tendency']
-    def set_self_body(self, body:str):
-        self.data['self_body'] = body
-        self.save_data()
-    def get_self_body(self):
-        return self.data['self_body']
-    def set_self_image(self, self_image:str):
-        self.data['self_image'] = self_image
-        self.save_data()
-    def get_self_image(self):
-        return self.data['self_image']
-    def save_data(self):
-        with open(self.dir, 'w', encoding='utf-8') as file:
-            json.dump(self.data, file)
-    def perusona(self):
-        return self.data
-
 """
     모니터의 정보를 가져오는 함수입니다.
 """
