@@ -1,10 +1,10 @@
 """
     resource.py는 실제 로컬 시스템 및 필요한 프로그램의 동작에서 활용하는 데이터 파일을 관리하는 동작을 수행합니다.
     일반적으로, 모니터의 해상도, 그래픽 카드의 존재 여부, 메모리의 잔여량 등이 여기에 해당합니다.
-    개발 당시의 컴퓨터 스팩은 ultra 9 285k, ram 64, RTX 5060ti 16gb, ssd 1tb(main), ssd 2tb(sub), ssd 1tb(extract disk)이며, macmini m2 pro 16gb, 512gb 이다.
+    개발 당시의 컴퓨터 스팩은 ultra 9 285k, ram 64, RTX 5060ti 16gb, ssd 1tb(main), ssd 2tb(sub), ssd 1tb(extract disk)이다.
 """
 
-from PySide6.QtWidgets import (QApplication, QInputDialog)
+from PySide6.QtWidgets import (QApplication)
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtCore import Signal, QObject
 from Config.config import ProgrameAction
@@ -13,7 +13,7 @@ from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_community.chat_models import ChatOllama
 
-import platform, os, json, zipfile, io, datetime
+import copy, os, json, zipfile, io, datetime
 
 """
     중앙에서 시그널 정보를 처리하는 싱글톤 클래스
@@ -25,6 +25,8 @@ class GlobalSignalHub(QObject):
     programe_signal = Signal(ProgrameAction)
     # global project dir로 공유하는 메소드
     dir = Signal(str)
+    # global message를 공유하는 변수
+    message = ''
     windows_data = {'x' : 100, 'y' : 100, 'width' : 600, 'height' : 800}
     # 싱글턴 패턴
     _instance = None
@@ -41,11 +43,11 @@ class GlobalSignalHub(QObject):
 """
 
 class ProjectConfig:
-    def __init__(self, **kwargs):
+    def __init__(self, PROGRAME_DATA:dict):
         self.buffer = io.BytesIO()
         self.Save = False
         self.dir = ''
-        self.title = ''
+        self.name = ''
         self.ProjectItems = {
                                 'AI_Data' : {
                                         'sample' : {
@@ -94,7 +96,8 @@ class ProjectConfig:
                                                             'self_tendency' : [],
                                                             'self_image' : [],
                                                             'note' : [],
-                                                    },
+                                                            'body_data_type' : "",
+                                                    }
                                 }, "documents" : {
                                                     'sample' : {
                                                         'title' : 'content',
@@ -133,7 +136,7 @@ class ProjectConfig:
                                 "timer" : ['sample'],
                             },
                         }
-        if (len(kwargs) == 0):
+        if len(PROGRAME_DATA['Last Open Project']) == 0 and not os.path.exists(PROGRAME_DATA['Last Open Project']):
             with zipfile.ZipFile(self.buffer, "w", zipfile.ZIP_DEFLATED) as file:
                 file.writestr("METADATA", f"{self.metadata}")
                 file.writestr("AI_Perusona/", "{}")
@@ -142,9 +145,10 @@ class ProjectConfig:
                 file.writestr("documents/", "{}")
                 file.writestr("data/", "{}")
                 file.writestr("timer/", "{}")
-        elif len(kwargs) == 2 and self.__key_check__(kwargs, ['dir','file']):
-            self.open_project(kwargs['dir'], kwargs['file'])
+        if len(PROGRAME_DATA['Last Open Project']) != 0 and os.path.exists(PROGRAME_DATA['Last Open Project']):
+            self.open_project('/'.join(PROGRAME_DATA['Last Open Project'].split['/'][0:-1]), PROGRAME_DATA['Last Open Project'].split('/')[-1])
             self.updatebuffer()
+        self.__save_Project__()
     def get_chat_history(self, name:str):
         """
         특정 AI 페르소나의 채팅 기록을 시간 순서대로 정렬하여 반환
@@ -228,7 +232,7 @@ class ProjectConfig:
         self.updatebuffer()
         # print(f"Saved: {self.ProjectItems['AI_Data'][ai_name][date_str][time_str]}")
     def ProjectName(self, name:str):
-        self.title = name
+        self.name = name
     def ProjectDir(self, dir:str):
         self.dir = dir
     def __key_check__(self, meta:dict, keys:list):
@@ -237,10 +241,10 @@ class ProjectConfig:
                 return False
         return True
     def change_project_title(self, title):
-        old_path = f"{self.dir}/{self.title}"
-        self.title = title
-        if os.path.exists(old_path) and self.title:
-            new_path = f"{self.dir}/{self.title}"
+        old_path = f"{self.dir}/{self.name}"
+        self.name = title
+        if os.path.exists(old_path) and self.name:
+            new_path = f"{self.dir}/{self.name}"
             try:
                 os.rename(old_path, new_path)
             except OSError as e:
@@ -251,7 +255,11 @@ class ProjectConfig:
         if 1 < len(self.metadata_dir.split('/')):
             with open(self.metadata_dir, 'w', encoding='utf-8') as file:
                 json.dump(self.metadata, file)
+    def __update_project_items_to_metadata__(self):
+        self.ProjectItems = self.metadata['ProjectItems']
     def open_project(self, dir:str, name:str):
+        if len(dir) == 0 and len(name) == 0:
+            return
         with zipfile.ZipFile(f"{dir}/{name}", 'r') as file:
             file_list = file.namelist()
             tdict = {}
@@ -265,8 +273,16 @@ class ProjectConfig:
                         data = file.read(f).decode('utf-8')
                         tdict[t[0]] = {t[1] : json.loads(data)}
             self.metadata = json.loads(file.read('METADATA').decode('utf-8'))
+        
         self.dir = dir
         self.name = name
+        os.remove('.tmp._tmsw_')
+    def new_project_files(self, dir:str):
+        self.dir = '/'.join(dir.split('/')[0:-1])
+        self.name = dir.split('/')[-1]
+        print(f"{'/'.join(dir.split('/')[0:-1])}/{dir.split('/')[-1]}")
+        self.__save_Project__()
+        os.remove('.\data\.tmp._tmsw_')
     def ProjectFiles(self):
         return self.metadata['Project_Files']
     def ProgrameData(self):
@@ -300,22 +316,82 @@ class ProjectConfig:
                     file.writestr(f"{name}/{c}", json.dumps(self.ProjectItems[name][c], ensure_ascii=False))
     def SearchPerusonaName(self, name:str):
         return name in self.ProjectItems['AI_Perusona'].keys()
-    def AppendPerusonaName(self, name:str):
+    def updatePerusonaName(self, name:str):
         self.ProjectItems['AI_Perusona'].keys()
-        if name in self.ProjectItems['AI_Perusona'].keys():
+        if name not in self.ProjectItems['AI_Perusona'].keys():
+            source_data = self.ProjectItems['AI_Perusona']['sample']
+            new_data = copy.deepcopy(source_data)
+            self.ProjectItems['AI_Perusona'][name] = new_data
             self.updatebuffer()
             return True
         else:
             return False
-
+    def updatePerusonaAge(self, name:str, age:int):
+        if self.SearchPerusonaName(name):
+            self.ProjectItems['AI_Perusona'][name]['age'] = age
+            self.updatebuffer()
+            return True
+        else:
+            return False 
+    def updatePerusonaSex(self, name:str, sex:str):
+        if self.SearchPerusonaName(name):
+            self.ProjectItems['AI_Perusona'][name]['sex'] = sex
+            self.updatebuffer()
+            return True
+        else:
+            return False
+    def updatePerusonaHobby(self, name:str, hobby:str):
+        if self.SearchPerusonaName(name):
+            self.ProjectItems['AI_Perusona'][name]['hobby'] = hobby
+            self.updatebuffer()
+            return True
+        else:
+            return False
+    def updatePerusonaPersonality(self, name:str, personality):
+        if self.SearchPerusonaName(name):
+            self.ProjectItems['AI_Perusona'][name]['personality'] = personality
+            self.updatebuffer()
+    def updatePerusonaTendency(self, name:str, tendency):
+        if self.SearchPerusonaName(name):
+            self.ProjectItems['AI_Perusona'][name]['tendency'] = tendency
+            self.updatebuffer()
+        else:
+            return False
+    def updatePerusonaBody(self, name:str, body, body_data_type):
+        if self.SearchPerusonaName(name):
+            if body_data_type is str:
+                self.ProjectItems['AI_Perusona'][name]['body'] = body
+            elif body_data_type is dict:
+                self.ProjectItems['AI_Perusona'][name]['body'] = body
+                self.ProjectItems['AI_Perusona']['body_data_type'] = dict
+            elif body_data_type is list:
+                self.ProjectItems['AI_Perusona'][name]['body'] = body
+                self.ProjectItems['AI_Perusona']['body_data_type']  = list
+            else:
+                return False
+        else:
+            return False
+    def getPerusonaDict(self):
+        return self.ProjectItems['AI_Perusona']
+    def __save_Project__(self):
+        self.updatebuffer()
+        print(f"{self.dir}/{self.name}")
+        if os.path.exists(f"{self.dir}/{self.name}"):
+            with open(f"./data/.tmp._tmsw_", 'wb') as f:
+                f.write(self.buffer.getvalue())
+        else:
+            if '.tmp._tmsw_' not in os.listdir('./data'):
+                with open(f"./data/.tmp._tmsw_", 'wb') as f:
+                    f.write(self.buffer.getvalue())
     def __del__(self):
         self.updatebuffer()
-        print(f"{self.dir}/{self.title}")
-        if len(self.dir) == 0 or len(self.title) == 0:
-            pass
+        print(f"{self.dir}/{self.name}")
+        if not (0 == len(self.name) and 0 == len(self.dir)):
+            with open(f"{self.dir}/{self.name}", "wb") as f:
+                    f.write(self.buffer.getvalue())
         else:
-            with open(f"{self.dir}/{self.title}", "wb") as f:
-                f.write(self.buffer.getvalue())
+            os.remove(f"./data/.tmp._tmsw_")
+
 """
     모니터의 정보를 가져오는 함수입니다.
 """

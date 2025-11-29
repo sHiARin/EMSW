@@ -109,54 +109,58 @@ class ProgrameAction(Enum):
     NeedToAIBody = 0xfff032
     # AI의 외형을 설정했습니다.
     SetAIPerusonaBody = 0xfff033
+    # 기본 설정을 마쳤습니다.
+    SuccessBaigicSetupAIPerusona = 0xfff034
     # AI가 스스로의 성격을 생각합니다.
-    ThinkPersonalityAISelf = 0xfff034
+    ThinkPersonalityAISelf = 0xfff035
     # AI의 성격을 정의합니다.
-    AIDefineSelfPersonality = 0xfff035
+    AIDefineSelfPersonality = 0xfff036
     # AI의 성격을 고칩니다.
-    FixedAIDefineSelfPersonality = 0xfff036
+    FixedAIDefineSelfPersonality = 0xfff037
     # AI가 스스로의 성격을 생각합니다.
-    ThinkTendencyAISelf = 0xfff037
+    ThinkTendencyAISelf = 0xfff038
     # AI의 성향을 정의합니다.
-    AIDefineSelfTendency = 0xfff038
+    AIDefineSelfTendency = 0xfff039
     # AI의 성향을 고칩니다.
-    FixedAIDefineSelfTendency = 0xfff039
+    FixedAIDefineSelfTendency = 0xfff03a
     # AI가 스스로의 외형을 생각합니다.
-    ThinkBodyAISelf = 0xfff03a
+    ThinkBodyAISelf = 0xfff03b
     # AI의 외형을 정의합니다.
-    AIDefineSelfBody = 0xfff03b
+    AIDefineSelfBody = 0xfff03c
     # AI의 외형을 고칩니다.
-    FixedAIDefineSelfBody = 0xfff03c
+    FixedAIDefineSelfBody = 0xfff03d
     # AI가 스스로의 자아를 생각합니다.
-    ThinkSelfImageAISelf = 0xfff03d
+    ThinkSelfImageAISelf = 0xfff03e
     # AI의 자아를 정의합니다.
-    AIDefineSelfImage = 0xfff03e
+    AIDefineSelfImage = 0xfff03f
     # AI의 자아를 고칩니다.
-    FixedAIDefineSelfImage = 0xfff03f
+    FixedAIDefineSelfImage = 0xfff040
     # 다음 항목으로 넘어간다.
-    PassNextArticles = 0xfff040
+    PassNextArticles = 0xfff041
     # AI의 페르소나가 완성되었습니다.
-    FinishedCreationAIPerusona = 0xfff041
+    FinishedCreationAIPerusona = 0xfff042
+    # AI의 페르소나를 만드는데 실패했습니다.
+    FailedCreateAIPerusona = 0xfff043
     # AI에게 메시지를 보냈습니다.
-    SendMessageLLM = 0xfff042
+    SendMessageLLM = 0xfff044
     # AI가 답변을 생성했습니다.
-    CreateAnswerLLM = 0xfff043
+    CreateAnswerLLM = 0xfff045
     # AI가 대화 내용을 정리중입니다.
-    ArrangementOfTalk = 0xfff044
+    ArrangementOfTalk = 0xfff046
     # 글로벌 룰을 어겼는지 검사중입니다.
-    CheckingGlobalRule = 0xfff045
+    CheckingGlobalRule = 0xfff047
     # 다시 생성합니다.
-    Regenerator = 0xfff046
+    Regenerator = 0xfff048
     # AI 페르소나를 다시 만드세요.
-    RemakeAIPerusona = 0xfff047
+    RemakeAIPerusona = 0xfff049
     # AI 패르소나를 불러옵니다.
-    LoadAIPerusona = 0xfff048
+    LoadAIPerusona = 0xfff05a
     # JsonFile에 오류가 발생했습니다.
-    ErrorFileJson = 0xfff049
+    ErrorFileJson = 0xfff04b
     # 파일을 저장하라는 메시지를 보냅니다.
-    SaveTheFile = 0xfff04a
+    SaveTheFile = 0xfff04c
     # 프로그램의 위치를 변경합니다.
-    ChangeProgramePosition = 0xfff04b
+    ChangeProgramePosition = 0xfff04d
 
 EVENT_MAPPING = {
     ProgrameAction.ProgrameStart: "ProgrameAction",
