@@ -1,17 +1,36 @@
-from EMSW_UI.EMSW_MainUI import EMSW
-from EMSW_UI.core.resource import ProjectConfig
 from PySide6.QtWidgets import QApplication
+from EMSW_UI.core.resource import ProjectConfig, GlobalWorld
+from EMSW_UI.EMSW_MainUI import EMSW
 
-import sys, os, json
+import os, json, sys
+
+def CreateProject(dir:str):
+    if not GlobalWorld.instance().is_ollama_running():
+        result = GlobalWorld.instance().start_ollama()
+        if not result:
+            print('cannot start ollama')
+            exit(0)
+    data = None
+
+    if os.path.exists(dir):
+        with open(dir, 'r') as file:
+            data = json.load(file)
+    elif not os.path.exists(dir):
+        data = {}
+        data["Last Open Project"] = ""
+        data["Open Projects"] = []
+        print(data)
+        with open(dir, 'w', encoding='utf-8') as file:
+            json.dump(data, file)
+    return ProjectConfig(data, 'Asia/Seoul')
+
+def main(argv):
+    dir = fr"{os.getcwd()}\Data\programeData.data"
+    project = CreateProject(dir)
+
+    app = QApplication(argv)
+    emsw = EMSW(project=project)
+    app.exec()
 
 if __name__ == "__main__":
-
-    app = QApplication(sys.argv)
-    
-    # 프로젝트 로드 시뮬레이션
-    project = ProjectConfig()
-    
-    window = EMSW(project)
-    window.projectOpen = True # 테스트를 위해 강제 오픈 설정
-    
-    sys.exit(app.exec())
+    main(sys.argv)

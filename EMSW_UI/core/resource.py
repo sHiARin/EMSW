@@ -4,6 +4,8 @@
     개발 당시의 컴퓨터 스팩은 ultra 9 285k, ram 64, RTX 5060ti 16gb, ssd 1tb(main), ssd 2tb(sub), ssd 1tb(extract disk)이다.
 """
 
+from datetime import datetime
+
 from PySide6.QtWidgets import (QApplication)
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtCore import Signal, QObject
@@ -13,7 +15,7 @@ from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_community.chat_models import ChatOllama
 
-import copy, os, json, zipfile, io, datetime
+import copy, os, json, zipfile, io, pytz, requests, subprocess
 
 """
     중앙에서 시그널 정보를 처리하는 싱글톤 클래스
@@ -43,7 +45,8 @@ class GlobalSignalHub(QObject):
 """
 
 class ProjectConfig:
-    def __init__(self, PROGRAME_DATA:dict):
+    def __init__(self, PROGRAME_DATA:dict, tz_:str):
+        self.tz_ = pytz.timezone(tz_)
         self.buffer = io.BytesIO()
         self.Save = False
         self.dir = ''
@@ -96,7 +99,10 @@ class ProjectConfig:
                                                             'self_tendency' : [],
                                                             'self_image' : [],
                                                             'note' : [],
-                                                            'body_data_type' : "",
+                                                            'hobby_data_type' : 'str',
+                                                            'personality_data_type' : "str",
+                                                            'tendency_data_type' : "str",
+                                                            'body_data_type' : "str",
                                                     }
                                 }, "documents" : {
                                                     'sample' : {
@@ -126,6 +132,14 @@ class ProjectConfig:
                                                 'width':800,
                                                 'height':500
                                             },
+                                'perusona_editing_windows' : {
+                                    'rows_width' : [],
+                                    'row_height' : 300,
+                                    'x' : 100,
+                                    'y' : 100,
+                                    'w' : 400,
+                                    'h' : 300,
+                                },
                             },
                             "ProjectItems" : {
                                 "AI_Perusona" : ['sample'],
@@ -147,7 +161,6 @@ class ProjectConfig:
                 file.writestr("timer/", "{}")
         if len(PROGRAME_DATA['Last Open Project']) != 0 and os.path.exists(PROGRAME_DATA['Last Open Project']):
             self.open_project('/'.join(PROGRAME_DATA['Last Open Project'].split['/'][0:-1]), PROGRAME_DATA['Last Open Project'].split('/')[-1])
-            self.updatebuffer()
         self.__save_Project__()
     def get_chat_history(self, name:str):
         """
@@ -227,9 +240,6 @@ class ProjectConfig:
                 current_block['user'] = ""
 
         self.ProjectItems['AI_Data'][ai_name][date_str][time_str] = current_block
-        
-        # 3. 변경 사항을 zip buffer에 반영 (ProjectConfig의 updatebuffer 호출)
-        self.updatebuffer()
         # print(f"Saved: {self.ProjectItems['AI_Data'][ai_name][date_str][time_str]}")
     def ProjectName(self, name:str):
         self.name = name
@@ -259,24 +269,54 @@ class ProjectConfig:
         self.ProjectItems = self.metadata['ProjectItems']
     def open_project(self, dir:str, name:str):
         if len(dir) == 0 and len(name) == 0:
-            return
-        with zipfile.ZipFile(f"{dir}/{name}", 'r') as file:
-            file_list = file.namelist()
-            tdict = {}
+            return None
+        path = os.path.join(dir, name)
+        tdict = {}
+
+        with zipfile.ZipFile(path, 'r') as zf:
+            file_list = zf.namelist()
             for f in file_list:
+                if f.endswith('/'):
+                    continue
                 if '/' in f:
-                    print(f)
-                    t = f.split('/')
-                    if t[0] not in tdict.keys():
-                        tdict[t[0]] = {t[0] : {}}
-                    if t[1] not in tdict.keys():
-                        data = file.read(f).decode('utf-8')
-                        tdict[t[0]] = {t[1] : json.loads(data)}
-            self.metadata = json.loads(file.read('METADATA').decode('utf-8'))
-        
+                    folder, filename = f.split('/', 1)
+                else:
+                    folder, filename = '', f
+                with zf.open(f) as inner:
+                    raw = inner.read().decode('utf-8')
+                try:
+                    data = json.loads(raw)
+                except json.JSONDecodeError:
+                    data = raw
+                if folder not in tdict:
+                    tdict[folder] = {}
+                tdict[folder][filename] = data
+        metaroot = tdict.get('', {})
+        self.metadata = metaroot.get('METADATA', self.metadata)
+
+        def _restore_section(folder_name: str, project_key: str, ext: str):
+            section = {}
+            folder_dict = tdict.get(folder_name, {})
+            for filename, content in folder_dict.items():
+                name_part, file_ext = os.path.splitext(filename)
+                if file_ext == ext:
+                    section[name_part] = content
+            self.ProjectItems[project_key] = section
+
+        _restore_section('AI_Data',     'AI_Data',     '.adata')
+        _restore_section('AI_World',    'AI_World',    '.aworld')
+        _restore_section('AI_Perusona', 'AI_Perusona', '.profile')
+        _restore_section('documents',   'documents',   '.doct')
+        _restore_section('data',        'data',        '.data')
+        _restore_section('timer',       'timer',       '.time')
+
         self.dir = dir
         self.name = name
-        os.remove('.tmp._tmsw_')
+
+        print(self.metadata)
+        print(self.ProjectItems)
+
+        os.remove('./data/.tmp._tmsw_')
     def new_project_files(self, dir:str):
         self.dir = '/'.join(dir.split('/')[0:-1])
         self.name = dir.split('/')[-1]
@@ -294,26 +334,15 @@ class ProjectConfig:
     def setHeight(self, height):
         print(self.metadata['ProgrameData']['windows_scale']['height'], height)
         self.metadata['ProgrameData']['windows_scale']['height'] = height
-        self.updatebuffer()
     def setWidth(self, width):
         print(self.metadata['ProgrameData']['windows_scale']['width'], width)
         self.metadata['ProgrameData']['windows_scale']['width'] = width
-        self.updatebuffer()
     def updatePosition(self, x, y):
         self.metadata['ProgrameData']['windows_pos']['x'] = x
         self.metadata['ProgrameData']['windows_pos']['y'] = y
-        self.updatebuffer()
     def updateScale(self, width, height):
         self.metadata['ProgrameData']['windows_scale']['width'] = width
         self.metadata['ProgrameData']['windows_scale']['height'] = height
-        self.updatebuffer()
-    def updatebuffer(self):
-        self.buffer = io.BytesIO()
-        with zipfile.ZipFile(self.buffer, "w", zipfile.ZIP_DEFLATED) as file:
-            file.writestr('METADATA', json.dumps(self.metadata, ensure_ascii=False))
-            for name, context in self.metadata['ProjectItems'].items():
-                for c in context:
-                    file.writestr(f"{name}/{c}", json.dumps(self.ProjectItems[name][c], ensure_ascii=False))
     def SearchPerusonaName(self, name:str):
         return name in self.ProjectItems['AI_Perusona'].keys()
     def updatePerusonaName(self, name:str):
@@ -322,73 +351,192 @@ class ProjectConfig:
             source_data = self.ProjectItems['AI_Perusona']['sample']
             new_data = copy.deepcopy(source_data)
             self.ProjectItems['AI_Perusona'][name] = new_data
-            self.updatebuffer()
             return True
         else:
             return False
     def updatePerusonaAge(self, name:str, age:int):
         if self.SearchPerusonaName(name):
             self.ProjectItems['AI_Perusona'][name]['age'] = age
-            self.updatebuffer()
             return True
         else:
             return False 
     def updatePerusonaSex(self, name:str, sex:str):
         if self.SearchPerusonaName(name):
             self.ProjectItems['AI_Perusona'][name]['sex'] = sex
-            self.updatebuffer()
             return True
         else:
             return False
-    def updatePerusonaHobby(self, name:str, hobby:str):
+    def updatePerusonaHobby(self, name:str, hobby, data_type:str):
         if self.SearchPerusonaName(name):
             self.ProjectItems['AI_Perusona'][name]['hobby'] = hobby
-            self.updatebuffer()
+            self.ProjectItems['AI_Perusona'][name]['hobby_data_type'] = data_type
             return True
         else:
             return False
-    def updatePerusonaPersonality(self, name:str, personality):
+    def updatePerusonaPersonality(self, name:str, personality, data_type:str):
         if self.SearchPerusonaName(name):
-            self.ProjectItems['AI_Perusona'][name]['personality'] = personality
-            self.updatebuffer()
-    def updatePerusonaTendency(self, name:str, tendency):
+            if data_type == "str" or data_type == "dict" or data_type == "list":
+                self.ProjectItems['AI_Perusona'][name]['personality'] = personality
+                self.ProjectItems['AI_Perusona'][name]['personality_data_type'] = data_type
+                return True
+            else: return False
+        else: return False
+    def updatePerusonaTendency(self, name:str, tendency, data_type:str):
         if self.SearchPerusonaName(name):
-            self.ProjectItems['AI_Perusona'][name]['tendency'] = tendency
-            self.updatebuffer()
+            if data_type == "str" or data_type == "dict" or data_type == "list":
+                self.ProjectItems['AI_Perusona'][name]['tendency'] = tendency
+                self.ProjectItems['AI_Perusona'][name]['tendency_data_type'] = data_type
         else:
             return False
-    def updatePerusonaBody(self, name:str, body, body_data_type):
+    def updatePerusonaBody(self, name:str, body, data_type:str):
         if self.SearchPerusonaName(name):
-            if body_data_type is str:
+            if data_type == "str" or data_type == "dict" or data_type == "list":
                 self.ProjectItems['AI_Perusona'][name]['body'] = body
-            elif body_data_type is dict:
-                self.ProjectItems['AI_Perusona'][name]['body'] = body
-                self.ProjectItems['AI_Perusona']['body_data_type'] = dict
-            elif body_data_type is list:
-                self.ProjectItems['AI_Perusona'][name]['body'] = body
-                self.ProjectItems['AI_Perusona']['body_data_type']  = list
+                self.ProjectItems['AI_Perusona'][name]['body_data_type']  = data_type
+                return True
             else:
                 return False
         else:
             return False
+    def updatePerusonaEditWindowColumnsLength(self, columns:list):
+        self.metadata['ProgrameData']['rows_width'] = columns
+    def updatePerusonaEditWindowPosition(self, x:int, y:int):
+        self.metadata['ProgrameData']['x'] = x
+        self.metadata['ProgrameData']['y'] = y
+    def updatePerusonaEditWindowScale(self, w:int, h:int):
+        self.metadata['ProgrameData']['w'] = w
+        self.metadata['ProgrameData']['h'] = h
     def getPerusonaDict(self):
         return self.ProjectItems['AI_Perusona']
-    def __save_Project__(self):
-        self.updatebuffer()
-        print(f"{self.dir}/{self.name}")
-        if os.path.exists(f"{self.dir}/{self.name}"):
-            with open(f"./data/.tmp._tmsw_", 'wb') as f:
-                f.write(self.buffer.getvalue())
+    def getPerusonaEditing_windowData(self):
+        return self.metadata['ProgrameData']['perusona_editing_windows']
+    def AIChattingList(self):
+        return self.ProjectItems['AI_Data'].keys()
+    def isInAIChatting(self, ai_name:str):
+        return ai_name in self.ProjectItems['AI_Data'].keys()
+    def sendUserMessage(self, ai_name:str, message:str, tz_:datetime.tzinfo):
+        date = ['월요일', '화요일', '수요일', '목요일', '금요일', '토요일', '일요일']
+        nowTime = datetime.now(tz_)
+        if not self.isInAIChatting(ai_name):
+            GlobalSignalHub.instance().programe_signal.emit(ProgrameAction.CreateNewAIChatting)
+            return True
         else:
-            if '.tmp._tmsw_' not in os.listdir('./data'):
-                with open(f"./data/.tmp._tmsw_", 'wb') as f:
-                    f.write(self.buffer.getvalue())
-    def __del__(self):
-        self.updatebuffer()
+            self.ProjectItems[ai_name][date[nowTime.weekday()]] = {f"{nowTime.hour()}" : {f"{nowTime.minute()} : {nowTime.second()} : {nowTime.microsecond}" : {"user" : message}}}
+            GlobalSignalHub.instance().programe_signal = ProgrameAction.SendMessageSuccess
+            return True
+    def sendAIMessage(self, ai_name:str, ai_message:str):
+        date = ['월요일', '화요일', '수요일', '목요일', '금요일', '토요일', '일요일']
+        if not self.isInAIChatting(ai_name):
+            GlobalSignalHub.instance().programe_signal.emit(ProgrameAction.CreateNewAIChatting)
+            return True
+        else:
+            nowTime = datetime.now(self.tz_)
+            self.ProjectItems[ai_name][date[nowTime.weekday()]] = {f"{nowTime.hour()}" : {f"{nowTime.minute()} : {nowTime.second()} : {nowTime.microsecond}" : {"user" : ai_message}}}
+            GlobalSignalHub.instance().programe_signal = ProgrameAction.SendMessageSuccess
+            return True
+    def __make_file__(self):
+        ai_data_file = {}
+        for k in self.ProjectItems['AI_Data'].keys():
+            self.metadata['ProjectItems']['AI_Data'].append(f"{k}.adata")
+            ai_data_file[k] = self.ProjectItems['AI_Data'][k]
+        ai_word_file = {}
+        self.metadata['ProjectItems']['AI_World'] = []
+        for k in self.ProjectItems['AI_World'].keys():
+            self.metadata['ProjectItems']['AI_World'].append(f"{k}.aworld")
+            ai_word_file[k] = self.ProjectItems['AI_World'][k]
+        ai_perusona = {}
+        self.metadata['ProjectItems']['AI_Perusona'] = []
+        for k in self.ProjectItems['AI_Perusona'].keys():
+            self.metadata['ProjectItems']['AI_Perusona'].append(f"{k}.profile")
+            ai_perusona[k] = self.ProjectItems['AI_Perusona'][k]
+        documents = {}
+        self.metadata['ProjectItems']['documents'] = []
+        for k in self.ProjectItems['documents'].keys():
+            self.metadata['ProjectItems']['documents'].append(f"{k}.doct")
+            documents[k] = self.ProjectItems['documents'][k]
+        data = {}
+        self.metadata['ProjectItems']['data'] = []
+        for k in self.ProjectItems['data'].keys():
+            self.metadata['ProjectItems']['data'].append(f"{k}.data")
+            data[k] = self.ProjectItems['data'][k]
+        timer = {}
+        self.metadata['ProjectItems']['timer'] = []
+        for k in self.ProjectItems['timer'].keys():
+            self.metadata['ProjectItems']['timer'].append(f"{k}.time")
+            timer[k] = self.ProjectItems['timer'][k]
+        return (ai_data_file, ai_word_file, ai_perusona, documents, data, timer)
+    def __save_Project__(self):
+        ai_data_file, ai_world_file, ai_perusona, documents, data, timer = self.__make_file__()
         print(f"{self.dir}/{self.name}")
-        if not (0 == len(self.name) and 0 == len(self.dir)):
-            with open(f"{self.dir}/{self.name}", "wb") as f:
-                    f.write(self.buffer.getvalue())
+        if os.path.exists(f"{self.dir}/{self.name}") and not (len(self.dir) == 0 or len(self.dir) == 0):
+            with zipfile.ZipFile(f"{self.dir}/{self.name}", 'w', zipfile.ZIP_DEFLATED) as z:
+                z.writestr('METADATA', json.dumps(self.metadata, ensure_ascii=False, indent=4))
+                for name, content in ai_data_file.items():
+                    z.writestr(f"AI_Data/{name}.adata",
+                               json.dumps(content, ensure_ascii=False))
+                for name, content in ai_world_file.items():
+                    z.writestr(f"AI_World/{name}.aworld",
+                               json.dumps(content, ensure_ascii=False))
+                for name, content in ai_perusona.items():
+                    z.writestr(f"AI_Perusona/{name}.profile",
+                               json.dumps(content, ensure_ascii=False))
+                for name, content in documents.items():
+                    z.writestr(f"documents/{name}.doct",
+                               json.dumps(content, ensure_ascii=False))
+                for name, content in data.items():
+                    z.writestr(f"AI_Data/{name}.data",
+                               json.dumps(content, ensure_ascii=False))
+                for name, content in timer.items():
+                    z.writestr(f"AI_Data/{name}.time",
+                               json.dumps(content, ensure_ascii=False))
+        else:
+            if len(self.dir) == 0 and len(self.name) == 0 or not os.path.exists(f"{self.dir}/{self.name}"):
+                with zipfile.ZipFile('./data/.tmp._tmsw_', 'w', zipfile.ZIP_DEFLATED) as z:
+                    z.writestr('METADATA', json.dumps(self.metadata, ensure_ascii=False, indent=4))
+                    for name, content in ai_data_file.items():
+                        z.writestr(f"AI_Data/{name}.adata",
+                            json.dumps(content, ensure_ascii=False))
+                    for name, content in ai_world_file.items():
+                        z.writestr(f"AI_World/{name}.aworld",
+                            json.dumps(content, ensure_ascii=False))
+                    for name, content in ai_perusona.items():
+                        z.writestr(f"AI_Perusona/{name}.profile",
+                            json.dumps(content, ensure_ascii=False))
+                    for name, content in documents.items():
+                        z.writestr(f"documents/{name}.doct",
+                               json.dumps(content, ensure_ascii=False))
+                    for name, content in data.items():
+                        z.writestr(f"AI_Data/{name}.data",
+                            json.dumps(content, ensure_ascii=False))
+                    for name, content in timer.items():
+                        z.writestr(f"AI_Data/{name}.time",
+                           json.dumps(content, ensure_ascii=False))
+            else:
+                return False
+    def __del__(self):
+        print(f"{self.dir}/{self.name}")
+        ai_data_file, ai_world_file, ai_perusona, documents, data, timer = self.__make_file__()
+        if not (0 == len(self.name) and 0 == len(self.dir)) and os.path.exists(self.dir):
+            with zipfile.ZipFile(f"{self.dir}/{self.name}", 'w', zipfile.ZIP_DEFLATED) as z:
+                z.writestr('METADATA', json.dumps(self.metadata, ensure_ascii=False, indent=4))
+                for name, content in ai_data_file.items():
+                    z.writestr(f"AI_Data/{name}.adata",
+                               json.dumps(content, ensure_ascii=False))
+                for name, content in ai_world_file.items():
+                    z.writestr(f"AI_World/{name}.aworld",
+                               json.dumps(content, ensure_ascii=False))
+                for name, content in ai_perusona.items():
+                    z.writestr(f"AI_Perusona/{name}.profile",
+                               json.dumps(content, ensure_ascii=False))
+                for name, content in documents.items():
+                    z.writestr(f"documents/{name}.doct",
+                               json.dumps(content, ensure_ascii=False))
+                for name, content in data.items():
+                    z.writestr(f"AI_Data/{name}.data",
+                               json.dumps(content, ensure_ascii=False))
+                for name, content in timer.items():
+                    z.writestr(f"AI_Data/{name}.time",
+                               json.dumps(content, ensure_ascii=False))
         else:
             os.remove(f"./data/.tmp._tmsw_")
 
@@ -422,30 +570,60 @@ def Display():
         screen_info.append(info)
     return screen_info
 
-# 중앙 세계관 및 AI 대화 기억 클래스
+# 중앙 AI LLM 제어 클래스
 class GlobalWorld:
-    # 세계관, 즉 AI가 자신이 있다고 믿는 세계관을 의미한다. (다른 것과는 상관이 없다.)
-    # AI의 대화 데이터와 글로벌 system 데이터를 관리하며 관장한다.
-    # AI System 메시지는 세계관에 의해 지배받는 식으로 유지된다.
-    # AI의 페르소나, 즉 가장 순수한 정체성은 고유하게 관리되지만, AI의 기억은 이곳에서 접근하여 관리한다.
-    # 또한, GlobalWorld System에 지배받고 있으며, 글로벌 System은 AI의 System보다 더 상위에서 지배되는 규칙이다.
+    """
+    이 클래스는 사용자가 생성한 설정 내지는 기본적인 AI의 설정을 관리하며, Ollama과의 연결을 직접적으로 관리하는 instance class.
+    일반적으로 프로그램이 시작될 때 시작되고, 프로그램이 끝날 때 종료된다.
+    프로그램이 시작될 때 -> ollma를 호출하고, 프로그램이 종료될 때 ollama를 종료한다. 단, 사전에 ollama가 설치되어 있어야 한다.
+    직접 staticmethod인 instance를 통해 호출할 수 있다.
+    """
 
-    #싱글톤 패턴
+    # 싱글톤 패턴
     _instance = None
 
+    # 전역 변수
+    prompt = None
+    OLLAMA_HOST = "http://127.0.0.1:11434"
+
+    # ollama가 동작중인지 확인
+    def is_ollama_running(self):
+        try:
+            r = requests.get(f"{self.OLLAMA_HOST}/api/tags", timeout=1)
+            return r.status_code == 200
+        except Exception:
+            return False
+    # ollama를 실행하는 메소드
+    def start_ollama(self):
+        cmd = ["ollama", "serve"]
+        subprocess.Popen(cmd, creationflags=subprocess.CREATE_NEW_CONSOLE)
+        # 서버가 시작될 시간을 기다림
+        for _ in range(10):
+            if self.is_ollama_running():
+                print("✔ Ollama 서버 실행됨.")
+                return True
+            self.time.sleep(1)
+        return False
     # world_system과 AI_Memory가 위치하는 장소
     def __init__(self):
-        self.world_system = {}
+        self.world_system = [("system", "you are helpful assistant.")]
         self.AI_Memory = {}
-    # 사용자가 세계관을 다듬을 때, 데이터가 있는 곳.
-    def appendWorldData(self, key:str, value:str):
-        self.world_system[key] = value
-    # AI가 대화를 할 때 반드시 이곳의 AI Memory에 올려야 한다.
-    def appendAI_Memory(self, key:str, value:str):
-        self.AI_Memory[key] = value
-    # AI의 답변이 Global_Rule에 저촉하는지 조사한다.
-    def check_Global_Rule(self, ai_response:str):
-        self.mastrule
+    # system Prompts 입력받아 생성하는 클래스
+    def setPrompt(self, system:list):
+        print(self.world_system)
+        print(system)
+        for s in system:
+            self.world_system.append(s)
+        self.prompt = ChatPromptTemplate.from_messages(self.world_system)
+    # 대화하는 AI의 정보를 입력받는 클래스, 여기서는 ProjectConfig를 활용하여 생성하도록 한다. 단, dict 타입의 형태로 받을 것.
+    # 최초에 등록해야만 하는 정보는 이곳에서 등록된다.
+    # 실행 중, 수정될 수 있는 정보는 
+    def setTalkCharacter(self, character:dict):
+        name = character.keys()
+        age = character[name]['age']
+        sex = character[name]['sex']
+        personality = character[name]['personality']
+        hobby = character[name]['hobby']
     @staticmethod
     def instance():
         if GlobalWorld._instance is None:

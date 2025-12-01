@@ -2,17 +2,19 @@ from PySide6.QtWidgets import (QMainWindow, QWidget, QFileDialog,
                                QVBoxLayout, QHBoxLayout, QPushButton,
                                QLabel, QLineEdit, QMessageBox,
                                QDialog, QAbstractItemView, QMenu,
-                               QSpinBox, QCheckBox, QInputDialog,
+                               QScrollArea, QCheckBox, QInputDialog,
                                QTableWidget, QFrame, QHeaderView,
-                               QTableWidgetItem)
+                               QTableWidgetItem, QListWidget)
 from PySide6.QtGui import (QKeyEvent, QAction, QStandardItemModel,
                            QStandardItem, QPalette, QColor,
-                           QGuiApplication, QFont, QTextItem)
+                           QGuiApplication, QFont, QTextItem, 
+                           QFontMetrics)
 from PySide6.QtCore import (Qt, Signal, QTimer,
                             QModelIndex, QObject)
 from Config.config import ProgrameAction, ProgrameEventChecker
 from EMSW_UI.core.resource import ProjectConfig, Display, GlobalSignalHub
 
+from EMSW_UI.AI_View import AI_Assistance_Chat
 import os
 
 class EMSW(QMainWindow):
@@ -178,8 +180,10 @@ class EMSW(QMainWindow):
         file_path = QFileDialog.getSaveFileName(self, "새 프로젝트", "새 프로젝트", "EMSW File(*.emsw)")
         self.project.new_project_files(file_path[0])
     def __open_project__(self):
-        file_path = QFileDialog.getOpenFileName(self, "프로젝트 열기", "", "EMSW File(*.emsw)")
-        self.project.open_project(dir=file_path[0], name=file_path[0])
+        file_path = QFileDialog.getOpenFileName(self, "프로젝트 열기", "", "EMSW File(*.emsw)")[0]
+        dir = "/".join(file_path.split('/')[0:-1])
+        name = file_path.split('/')[-1]
+        self.project.open_project(dir=dir, name=name)
         self.hub.programe_signal.emit(ProgrameAction.OpenProjectSuccess)
         print(self.project.getPosition())
     def __ProjectOpening__(self):
@@ -250,9 +254,11 @@ class EMSW(QMainWindow):
         hobby, ok = QInputDialog.getText(self, '취미 입력', '취미를 입력해 주세요.(,로 복수개 입력하거나 비울 수도 있습니다.) : ')
         if ok:
             if len(hobby) == 0:
-                self.project.updatePerusonaHobby(name, '취미가 없습니다.')
-            elif 0 < len(hobby):
-                self.project.updatePerusonaHobby(name, hobby)
+                self.project.updatePerusonaHobby(name, hobby, "str")
+            elif hobby in ',':
+                self.project.updatePerusonaHobby(name, hobby.split(','), "list")
+            elif hobby not in ',':
+                self.project.updatePerusonaHobby(name, [hobby], "list")
             else:
                 return False
         else:
@@ -260,33 +266,50 @@ class EMSW(QMainWindow):
         personality, ok = QInputDialog.getText(self, '성격 입력', '성격을 입력해 주세요.(비울 수 없습니다.) : ')
         if ok:
             if 0 < len(personality):
-                self.project.updatePerusonaPersonality(name, personality)
+                if ',' in personality:
+                    data = personality.split(',')
+                    if ':' in data[0]:
+                        tmp = {}
+                        for d in data:
+                            k, v = zip(d.split(':'))
+                        self.project.updatePerusonaPersonality(name, tmp, 'dict')
+                    else:
+                        self.project.updatePerusonaPersonality(name, data, 'list')
+                else:
+                    self.project.updatePerusonaPersonality(name, data, 'str')
             else:
-                return False
+                False
         tendency, ok = QInputDialog.getText(self, '성향 입력', '성향을 입력해 주세요.(비울 수 없습니다.) : ')
         if ok:
             if 0 < len(tendency):
-                self.project.updatePerusonaTendency(name, tendency)
+                if ',' in tendency:
+                    data = tendency.split(',')
+                    if ':' in data[0]:
+                        tmp = {}
+                        for d in data:
+                            k, v = zip(d.split(':'))
+                            tmp[k] = v
+                        self.project.updatePerusonaTendency(name, tmp, 'dict')
+                    self.project.updatePerusonaTendency(name, data, 'list')
+                else:
+                    self.project.updatePerusonaTendency(name, tmp, 'str')
             else:
                 return False
         body, ok = QInputDialog.getText(self, '신체 묘사', '신체를 묘사해 주세요.')
         if ok and body:
             if 0 < len(body):
-                print(1)
-                if ':' in body:
-                    body = body.split(',')
-                    t = {}
-                    for key, value in body:
-                        if len(body[0]) == 0:
-                            self.hub.programe_signal.emit(ProgrameAction.FailedCreateAIPerusona)
-                            self.hub.message = name
-                            return False
-                        t[key] = value
-                    self.project.updatePerusonaBody(name, t, dict)
-                elif ',' in body:
-                    self.project.updatePerusonaBody(name, body.split(', '), list)
+                if ',' in body:
+                    data = body.split(',')
+                    if ':' in data[0]:
+                        tmp = {}
+                        for d in data:
+                            k, v = zip(d.split(':'))
+                            tmp[k] = v
+                        self.project.updatePerusonaBody(name, tmp, "dict")
+                    else:
+                        self.project.updatePerusonaBody(name, data, "list")
                 else:
-                    self.project.updatePerusonaBody(name, body, str)
+                    self.project.updatePerusonaBody(name, body, "str")
         print(self.project.getPerusonaDict())
         self.project.__save_Project__()
         return True
@@ -310,9 +333,10 @@ class EMSW(QMainWindow):
 class Persona_delete_window(QWidget):
     def __init__(self, project:ProjectConfig):
         super().__init__()
-        self.resize(800, 600)
-        self.setStyleSheet("background: #F0F2F5")
         self.project = project
+        self.move(self.project.getPerusonaEditing_windowData()['x'], self.project.getPerusonaEditing_windowData()['y'])
+        self.resize(self.project.getPerusonaEditing_windowData()['w'], self.project.getPerusonaEditing_windowData()['h'])
+        self.setStyleSheet("background: #F0F2F5")
         self.__start__()
         self.init_ui()
     def __start__(self):
@@ -321,59 +345,118 @@ class Persona_delete_window(QWidget):
         names = self.project.getPerusonaDict().keys()
         values = self.project.getPerusonaDict()
         self.__create_tables__(names, values)
+        self.table.resizeRowsToContents()
     def __create_tables__(self, names:list, value:dict):
-        columns = ['이름', '나이', '성별', '취미', '성격', '성향', '외모']
+        columns = ['이름', '나이', '성별', '취미', '성격', '성향', '외모', '자아']
         self.table.setColumnCount(len(columns))
         self.table.setHorizontalHeaderLabels(columns)
-        print(value)
-        if value['body_data_type'] == dict:
-            for n in names:
-                if n == 'sample' or n == 'body_data_type':
+        i = 0
+        items = []
+        for n in names:
+            item = []
+            if n == 'sample':
                     continue
+            else:
+                count = self.table.rowCount()
+                self.table.insertRow(count)
+                item.append(n)
+                item.append(f"{value[n]['age']}")
+                item.append(value[n]['sex'])
+                if value[n]['hobby'] is None:
+                    item.append('취미가 없습니다.')
                 else:
-                    count = self.table.rowCount()
-                    self.table.insertRow(count)
-                    item = [n, f"{value[n]['age']}", value[n]['sex'], value[n]['hobby'], value[n]['personality'], value[n]['tendency'] ,"\n".join(([f"{k}:{v}" for k, v in zip(value[n]['body'].keys(), value[n]['body'].values())]))]
-                    for col_index, data in enumerate(item):
-                        item = QTableWidgetItem(data)
-                        if 5 < col_index:
-                            item.setTextAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
-                            flags = item.flags()
-                            item.setFlags(flags | Qt.ItemFlag.NoItemFlags)
-                        self.table.setItem(count, col_index, item)
-                        self.table.resizeRowToContents(count)
-        elif value['body_data_type'] == list:
-            for n in names:
-                if n == 'sample' or n == 'body_data_type':
-                    continue
-                else:
-                    count = self.table.rowCount()
-                    self.table.insertRow(count)
-                    item = [n, f"{value[n]['age']}", value[n]['sex'],value[n]['hobby'],value[n]['personality'],value[n]['tendency'],"\n".join(value[n]['body'])]
-                    for col_index, data in enumerate(item):
-                        item = QTableWidgetItem(data)
-                        if 5 < col_index:
-                            item.setTextAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
-                            flags = item.flags()
-                            item.setFlags(flags | Qt.ItemFlag.NoItemFlags)
-                        self.table.setItem(count, col_index, item)
-                        self.table.resizeRowToContents(count)
-        elif value['body_data_type'] == str:
-            for n in names:
-                if n == 'sample' or n == 'body_data_type':
-                    continue
-                else:
-                    count = self.table.rowCount()
-                    self.table.insertRow(count)
-                    item = [n, f"{value[n]['age']}", value[n]['sex'],value[n]['hobby'],value[n]['personality'],value[n]['tendency'],value[n]['body']]
-                    for col_index, data in enumerate(item):
-                        item = QTableWidgetItem(data)
-                        if 5 < col_index:
-                            item.setTextAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
-                            flags = item.flags()
-                            item.setFlags(flags | Qt.ItemFlag.NoItemFlags)
-                        self.table.setItem(count, col_index, item)
-                        self.table.resizeRowToContents(count)
+                    if type(value[n]['hobby']) is list:
+                        item.append('\n'.join([t for t in value[n]['hobby']]))
+                if value[n]['personality_data_type'] == 'str':
+                    item.append(value[n]['personality'])
+                elif value[n]['personality_data_type'] == 'list':
+                    item.append('\n'.join(value[n]['personality']))
+                elif value[n]['personality_data_type'] == 'dict':
+                    item.append('\n'.join([f"{k} : {v}" for k, v in value[n]['personality'].items()]))
+                if value[n]['tendency_data_type'] == 'str':
+                    item.append(value[n]['tendency'])
+                elif value[n]['tendency_data_type'] == 'list':
+                    item.append('\n'.join(value[n]['tendency']))
+                elif value[n]['tendency_data_type'] == 'dict':
+                    item.append('\n'.join([f"{k} : {v}" for k, v in value[n]['tendency'].items()]))
+                if value[n]['body_data_type'] == 'str':
+                    item.append(value[n]['body'])
+                elif value[n]['body_data_type'] == 'list':
+                    item.append('\n'.join([t for t in value[n]['body']]))
+                elif value[n]['body_data_type'] == 'dict':
+                    item.append('\n'.join([f"{k} : {v}" for k, v in value[n]['body'].items()]))
+                items.append(item)
+        for item in items:
+            count = self.table.rowCount()
+            self.set_perusona_row(item=item, countNum=count)
+        self.__make_perusona_tables__()
+    def __make_perusona_tables__(self):
+        if len(self.project.getPerusonaEditing_windowData()['rows_width']) < self.table.columnCount():
+            print(self.table.columnCount())
+        else:
+            width = []
+            for i in range(self.table.columnCount()):
+                width.append(self.table.columnWidth(i))
+            if len(width) == self.table.columnCount():
+                self.project
+        
+    def __ego_setup_button__(self, name:str):
+        button = QPushButton('설정')
+        button.clicked.connect(lambda :self.__ego_setup_menu__(name))
+        return button
+    def __ego_setup_menu__(self, name:str):
+        self.egosetup = EgoSettup(self.project, name)
+    def set_perusona_row(self, item:list, countNum:int):
+        if countNum < 1:
+            self.table.setRowCount(1)
+        row = 0
+        pos = len(item)
+        name = item[0]
+        for col, value in enumerate(item):
+            item = QTableWidgetItem(value)
+            self.table.setItem(row, col, item)
+            if col + 1 == pos:
+                self.table.setCellWidget(row, col+1, self.__ego_setup_button__(name))
+    def Cell_Data_All_Center(self):
+        for row in range(self.table.rowCount()):
+            for col in range(self.table.columnCount()):
+                item = self.table.item(row, col)
+                if item:
+                    item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+    def updateNameRawSize(self):
+        length = 20
+        metrics = QFontMetrics(self.table.font())
+
+        target_col = 1
+
+        for row in range(self.table.columnCount()):
+            item = self.table.item(row, target_col)
+            if item is None or not item.text():
+                continue
+            w = metrics.horizontalAdvance(item.text()) + 20
+            if length < w:
+                length = w
+        self.table.horizontalHeader().setSectionResizeMode(target_col, QHeaderView.ResizeMode.Fixed)
+        self.table.setColumnWidth(target_col, length)
+    def setAgeRawSize(self):
+        self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Fixed)
+        self.table.setColumnWidth(1, 40)
+    def setSexRawSize(self):
+        self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Fixed)
+        self.table.setColumnWidth(2, 40)
+    def setStretchMode(self, minCol:int):
+        metrics = QFontMetrics(self.table.font())
+        for col in range(minCol, self.table.rowCount()):
+            length = 20
+            for row in range(self.table.ColumnCount()):
+                item = self.table.item(row, col)
+                if item is None or not item.text():
+                    length = [length,  metrics.horizontalAdvance(item.text()) + 20]
+            self.table.horizontalHeader().setSectionResizeMode(col, QHeaderView.ResizeMode.Stretch)
+            self.table.horizontalHeader().setSectionResizeMode(col, QHeaderView.ResizeMode.Fixed)
+    def __AI_Self_Image_setup__(self, name:dir, inputText:list):
+        if len(inputText) == 7:
+            EgoSettup(self.project, name, inputText)
     def init_ui(self):
         # 메인 레이아웃
         main_layout = QVBoxLayout(self)
@@ -481,11 +564,6 @@ class Persona_delete_window(QWidget):
             }
         """)
 
-        # 헤더 늘리기 설정 (마지막 컬럼 채우기 등)
-        header = self.table.horizontalHeader()
-        header.setSectionResizeMode(QHeaderView.Interactive) # 사용자가 조절 가능
-        header.setSectionResizeMode(2, QHeaderView.Stretch)  # '값' 컬럼을 꽉 채움
-
         main_layout.addWidget(self.table)
 
 
@@ -503,23 +581,15 @@ class Persona_delete_window(QWidget):
         status_layout.addWidget(close_btn)
 
         main_layout.addLayout(status_layout)
-    # ---------------------------------------------------------
-    # 데이터 채우기 (UI 확인용 더미 데이터 함수)
-    # ---------------------------------------------------------
-    def load_dummy_data(self):
-        data = [
-            ("AI_Data", "sample_user", "홍길동", "테스트 유저입니다", "2024-05-20"),
-            ("AI_World", "country", "Korea", "인구 5천만", "2024-05-21"),
-            ("Config", "Version", "1.0.2", "현재 버전", "2024-05-22"),
-            ("Timer", "Focus", "3600s", "집중 시간 데이터", "2024-05-22"),
-            ("Log", "Error", "NullPointer", "치명적 오류 발생", "2024-05-23"),
-        ]
-        
-        self.table.setRowCount(len(data))
-        self.count_label.setText(f"총 {len(data)}개의 항목")
-
-        for row_idx, row_data in enumerate(data):
-            for col_idx, value in enumerate(row_data):
-                item = QTableWidgetItem(str(value))
-                item.setTextAlignment(Qt.AlignCenter if col_idx != 2 else Qt.AlignLeft|Qt.AlignVCenter)
-                self.table.setItem(row_idx, col_idx, item)
+class EgoSettup(QMainWindow):
+    def __init__(self, project:ProjectConfig, name:str):
+        self.project = project
+        self.name = name
+        self.chattingSetUp()
+    def chattingSetUp(self):
+        print(self.name)
+        print(self.project.getPerusonaDict()[self.name])
+    def __make_chatting_setup__(self):
+        pass
+    def __init_ui__(self):
+        pass

@@ -161,6 +161,10 @@ class ProgrameAction(Enum):
     SaveTheFile = 0xfff04c
     # 프로그램의 위치를 변경합니다.
     ChangeProgramePosition = 0xfff04d
+    # AI 채팅을 새로 만듭니다.
+    CreateNewAIChatting = 0xfff04e
+    # AI에게 메시지를 보냈습니다.
+    SendMessageSuccess = 0xfff04f
 
 EVENT_MAPPING = {
     ProgrameAction.ProgrameStart: "ProgrameAction",
