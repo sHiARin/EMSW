@@ -190,6 +190,7 @@ ai_name {
     }
 }
 
+(version 1에는 개발하지 않을 예정. 단, 파일 구조를 설정하기에 필요하므로 추가해 둠.)
 ai_world_file의 구조
 
 contry는 구분이 가능한 고유 코드(주로 unicode로 바꾼 이름 또는 hashlib으로 바꾼 이름)로 구성된다.
@@ -275,6 +276,14 @@ timer : {
     }
 }
 
+wiki
+
+wiki : {
+    name : {
+        index : []
+        body : []
+    }
+}
 
 2025-11-28
 

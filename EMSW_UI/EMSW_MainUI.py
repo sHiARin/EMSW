@@ -4,18 +4,19 @@ from PySide6.QtWidgets import (QMainWindow, QWidget, QFileDialog,
                                QDialog, QAbstractItemView, QMenu,
                                QScrollArea, QCheckBox, QInputDialog,
                                QTableWidget, QFrame, QHeaderView,
-                               QTableWidgetItem, QListWidget)
+                               QTableWidgetItem, QListWidgett)
 from PySide6.QtGui import (QKeyEvent, QAction, QStandardItemModel,
                            QStandardItem, QPalette, QColor,
                            QGuiApplication, QFont, QTextItem, 
                            QFontMetrics)
 from PySide6.QtCore import (Qt, Signal, QTimer,
-                            QModelIndex, QObject)
+                            QModelIndex, QObject, QThread,
+                            Slot)
+from shiboken6 import isValid
 from Config.config import ProgrameAction, ProgrameEventChecker
-from EMSW_UI.core.resource import ProjectConfig, Display, GlobalSignalHub
+from EMSW_UI.core.resource import ProjectConfig, Display, GlobalSignalHub, GlobalWorld
 
-from EMSW_UI.AI_View import AI_Assistance_Chat
-import os
+import os, copy
 
 class EMSW(QMainWindow):
     def __init__(self, project:ProjectConfig):
@@ -399,7 +400,6 @@ class Persona_delete_window(QWidget):
                 width.append(self.table.columnWidth(i))
             if len(width) == self.table.columnCount():
                 self.project
-        
     def __ego_setup_button__(self, name:str):
         button = QPushButton('설정')
         button.clicked.connect(lambda :self.__ego_setup_menu__(name))
@@ -454,9 +454,6 @@ class Persona_delete_window(QWidget):
                     length = [length,  metrics.horizontalAdvance(item.text()) + 20]
             self.table.horizontalHeader().setSectionResizeMode(col, QHeaderView.ResizeMode.Stretch)
             self.table.horizontalHeader().setSectionResizeMode(col, QHeaderView.ResizeMode.Fixed)
-    def __AI_Self_Image_setup__(self, name:dir, inputText:list):
-        if len(inputText) == 7:
-            EgoSettup(self.project, name, inputText)
     def init_ui(self):
         # 메인 레이아웃
         main_layout = QVBoxLayout(self)
@@ -581,15 +578,228 @@ class Persona_delete_window(QWidget):
         status_layout.addWidget(close_btn)
 
         main_layout.addLayout(status_layout)
+
+class ChatController(QObject):
+    ai_message = Signal(str)
+
+    def __init__(self, parent=None):
+        super().__init__()
+        self.worker = Ollama_Connector()
+
+        self.worker.answer_ready.connect(self.on_answer_ready)
+    @Slot(str)
+    def on_answer_message(self, text):
+        self.worker.generate(text)
+    @Slot(str)
+    def on_answer_ready(self, ai_text):
+        self.worker.generate(ai_text)
+
+class Ollama_Connector(QWidget):
+    answer_ready = Signal(str)
+
+    def generate(self, prompt:str):
+        text = GlobalWorld.Call_AI(prompt)
+        self.answer_ready.emit(text)
+
 class EgoSettup(QMainWindow):
     def __init__(self, project:ProjectConfig, name:str):
+        super().__init__()
         self.project = project
         self.name = name
-        self.chattingSetUp()
+        self.start()
+        self.__init_ui__()
+        GlobalSignalHub.instance().programe_signal.connect(self.Checking)
+        GlobalSignalHub.instance().programe_signal.emit(ProgrameAction.ThinkBodyAISelf)
     def chattingSetUp(self):
-        print(self.name)
-        print(self.project.getPerusonaDict()[self.name])
-    def __make_chatting_setup__(self):
-        pass
+        GlobalWorld.Create_AI_Memory(self.name)
+        GlobalWorld.Create_AI_Perusona(self.name, self.project.getPerusonaDict()[self.name])
+    def CreateChattingView(self):
+        self.chat_view = ChattingView(self)
+        self.chat_view.set_name(self.name)
+    def start(self):
+        self.ChatControl = ChatController(self)
+        self.chattingSetUp()
+        self.CreateChattingView()
+    #ChattingView에서 호출
+    def __get_sys_message__(self, programe_signal:ProgrameAction):
+        if programe_signal == ProgrameAction.AIDefineSelfBody:
+            GlobalSignalHub.instance().programe_signal.connect(self.Checking)
+            GlobalSignalHub.instance().programe_signal.emit(ProgrameAction.ThinkPersonalityAISelf)
+        elif programe_signal == ProgrameAction.AIDefineSelfPersonality:
+            GlobalSignalHub.instance().programe_signal.connect(self.Checking)
+            GlobalSignalHub.instance().programe_signal.emit(ProgrameAction.ThinkTendencyAISelf)
+        elif programe_signal == ProgrameAction.AIDefineSelfPersonality:
+            GlobalSignalHub.instance().programe_signal.connect(self.Checking)
+            GlobalSignalHub.instance().programe_signal.connect(ProgrameAction.ThinkSelfImageAISelf)
+        elif programe_signal == ProgrameAction.AIDefineSelfImage:
+            print('완료')
+    #__get__message__ 또는, 생성시 호출
+    def Checking(self, programe_signal:ProgrameAction):
+        check = GlobalWorld.check_perusona(self.name, ['age', 'sex', 'personality', 'hobby', 'tendency', 'body', 'self_body', 'self_personality', 'self_tendency', 'self_image'])
+        print(check)
+        if  check == 8 and programe_signal == ProgrameAction.ThinkBodyAISelf:
+            self.chat_view.setBody()
+        elif check == 9 and programe_signal == ProgrameAction.ThinkPersonalityAISelf:
+            GlobalSignalHub.instance().programe_signal.connect(self.chat_view.setAI)
+            GlobalSignalHub.instance().programe_signal.emit(ProgrameAction.SetPersonalityAISelf)
     def __init_ui__(self):
-        pass
+        self.move(400, 400)
+        self.resize(300, 800)
+        self.setWindowTitle(self.name)
+
+        central = QWidget(self)
+        vlayout = QVBoxLayout(central)
+        vlayout.addWidget(self.chat_view)
+
+        self.setCentralWidget(central)
+        self.show()
+
+
+class ChattingView(QWidget):
+    def __init__(self, parent):
+        super().__init__(Parent=parent)
+        self.__parent = parent
+        self.__name = None
+        self.__set = False
+    def name(self):
+        return self.__name
+    def set_name(self, name:str):
+        self.__name = name
+        self.__init_ui__()
+    def setBody(self):
+        print('ChattingView')
+        self.add_message(GlobalWorld.Call_AI(self.__name, '', 1), False)
+    def __init_ui__(self):
+         # ===== 오른쪽: 채팅 영역 =====
+        chat_layout = QVBoxLayout()
+        chat_layout.setContentsMargins(0, 0, 0, 0)
+        chat_layout.setSpacing(0)
+
+        # --- 상단 헤더 ---
+        self.header_label = QLabel(f"{self.__name}의 자기 설정")
+        self.header_label.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft)
+        self.header_label.setFixedHeight(50)
+        self.header_label.setStyleSheet("""
+            QLabel {
+                padding-left: 16px;
+                font-size: 16px;
+                font-weight: bold;
+                border-bottom: 1px solid #cccccc;
+                background: #ffffff;
+            }
+        """)
+        chat_layout.addWidget(self.header_label)
+
+        # --- 메시지 스크롤 영역 ---
+        self.scroll_area = QScrollArea()
+        self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+
+        self.messages_container = QWidget()
+        self.messages_layout = QVBoxLayout(self.messages_container)
+        self.messages_layout.setContentsMargins(10, 10, 10, 10)
+        self.messages_layout.setSpacing(8)
+        self.messages_layout.addStretch()  # 맨 아래쪽 정렬용 스페이서
+
+        self.scroll_area.setWidget(self.messages_container)
+        chat_layout.addWidget(self.scroll_area)
+
+        # --- 하단 입력 영역 ---
+        input_area = QWidget()
+        input_layout = QHBoxLayout(input_area)
+        input_layout.setContentsMargins(8, 8, 8, 8)
+        input_layout.setSpacing(8)
+
+        self.message_edit = QLineEdit()
+        self.message_edit.setPlaceholderText("메시지를 입력하세요...")
+        self.message_edit.returnPressed.connect(self.send_message)
+
+        self.send_button = QPushButton("Send")
+        self.send_button.clicked.connect(self.send_message)
+
+        input_layout.addWidget(self.message_edit)
+        input_layout.addWidget(self.send_button)
+
+        chat_layout.addWidget(input_area)
+        self.setLayout(chat_layout)
+
+        # 기본 안내 메시지
+        self.add_message("캐릭터의 자아를 구축합니다.", is_me=False)
+        self.add_message("우선, 자신의 외모에 대한 생각을 AI가 직접 말합니다.", is_me=False)
+        self.add_message("이 data는 Perusona의 연결에 직접적으로 관여하는 데이터입니다.", is_me=False)
+        self.add_message("모든 데이터는 기록되어 저장됩니다.", is_me=False)
+    # ----- 메시지 추가 (말풍선) -----
+    def add_message(self, text: str, is_me: bool):
+        """
+        text : 메시지 텍스트
+        is_me : 유저가 보낸 메시지면 True, AI면 False
+        """
+        line_widget = QWidget()
+        line_layout = QHBoxLayout(line_widget)
+        line_layout.setContentsMargins(0, 0, 0, 0)
+        line_layout.setSpacing(0)
+
+        bubble = QLabel(text)
+        bubble.setWordWrap(True)
+        bubble.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+
+        if is_me:
+            # 내 메시지: 오른쪽 정렬 + 파란 말풍선
+            bubble.setStyleSheet("""
+                QLabel {
+                    background-color: #0f8cff;
+                    color: white;
+                    border-radius: 16px;
+                    padding: 8px 12px;
+                    max-width: 400px;
+                }
+            """)
+            line_layout.addStretch()
+            line_layout.addWidget(bubble)
+        else:
+            # 상대 메시지: 왼쪽 정렬 + 회색 말풍선
+            bubble.setStyleSheet("""
+                QLabel {
+                    background-color: #e5e5ea;
+                    color: black;
+                    border-radius: 16px;
+                    padding: 8px 12px;
+                    max-width: 400px;
+                }
+            """)
+            line_layout.addWidget(bubble)
+            line_layout.addStretch()
+
+        # stretch 앞에 삽입해서 아래로 쌓이게
+        index = self.messages_layout.count() - 1
+        self.messages_layout.insertWidget(index, line_widget)
+
+        QTimer.singleShot(0, self.scroll_to_bottom)
+    def scroll_to_bottom(self):
+        # self 자체가 이미 죽었으면 그냥 반환
+        if not isValid(self):
+            return
+
+        # scroll_area 속 C++ 객체가 이미 삭제된 경우 방어
+        if not hasattr(self, "scroll_area") or self.scroll_area is None:
+            return
+        if not isValid(self.scroll_area):
+            return
+
+        bar = self.scroll_area.verticalScrollBar()
+        if not isValid(bar):
+            return
+
+        bar.setValue(bar.maximum())
+    def send_message(self):
+        text = self.message_edit.text().strip()
+        if not text:
+            return
+
+        self.add_message(text, is_me=True)
+        self.message_edit.clear()
+
+        def echo():
+            self.add_message(f"echo: {text}", is_me=False)
+
+        QTimer.singleShot(400, echo)  # 0.4초 후 에코

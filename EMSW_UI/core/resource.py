@@ -14,6 +14,7 @@ from Config.config import ProgrameAction
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_community.chat_models import ChatOllama
+from langchain_core.output_parsers import StrOutputParser
 
 import copy, os, json, zipfile, io, pytz, requests, subprocess
 
@@ -110,17 +111,22 @@ class ProjectConfig:
                                                         'index' : 'content',
                                                         'text' : 'content',
                                                 },
-                              }, 'data' : {
+                                }, 'data' : {
                                             'sample' : {
                                                             'type' : 'content',
                                                         }
-                            }, "timer" : {
+                                }, "timer" : {
                                     'sample' : {
                                         'input_time' : 0,
                                         'focus_time' : 0,
                                         'active_time' : 0,
                                     }
-                                },
+                                }, "wiki" : {
+                                    "sample" : {
+                                        "index" : [],
+                                        "bodies" : []
+                                    }
+                                }
                             }
         self.metadata = {
                             "ProgrameData" : {
@@ -148,6 +154,7 @@ class ProjectConfig:
                                 "documents" : ['sample'],
                                 "data" : ['sample'],
                                 "timer" : ['sample'],
+                                "wiki" : [ "sample" ]
                             },
                         }
         if len(PROGRAME_DATA['Last Open Project']) == 0 and not os.path.exists(PROGRAME_DATA['Last Open Project']):
@@ -159,6 +166,7 @@ class ProjectConfig:
                 file.writestr("documents/", "{}")
                 file.writestr("data/", "{}")
                 file.writestr("timer/", "{}")
+                file.writestr("wiki/", "{}")
         if len(PROGRAME_DATA['Last Open Project']) != 0 and os.path.exists(PROGRAME_DATA['Last Open Project']):
             self.open_project('/'.join(PROGRAME_DATA['Last Open Project'].split['/'][0:-1]), PROGRAME_DATA['Last Open Project'].split('/')[-1])
         self.__save_Project__()
@@ -583,8 +591,18 @@ class GlobalWorld:
     _instance = None
 
     # 전역 변수
-    prompt = None
+    # 로컬 Ollama Host를 위한 주소
     OLLAMA_HOST = "http://127.0.0.1:11434"
+    # 로컬 AI Memory를 저장하는 주소
+    AI_Memory = None
+    # AI의 프롬프트 리스트
+    Prompt = None
+    # 로컬 llm과 통신할 수 있도록 하는 langchain
+    llm = None
+    # 로컬 llm에 적용된 모델 종류
+    ollama = None
+    # 로컬 llm에 적용된 temperature (0 : 결정론적, 0.1~0.3 : 답이 일관적이게 변함, 0.8~1 이상 : 답에 창의성이 부여됨.)
+    temperature = 0.7
 
     # ollama가 동작중인지 확인
     def is_ollama_running(self):
@@ -604,27 +622,179 @@ class GlobalWorld:
                 return True
             self.time.sleep(1)
         return False
-    # world_system과 AI_Memory가 위치하는 장소
+    # 가장 기초적인 system prompt 데이터를 만드는 메소드
+    def make_prompt_data():
+        if GlobalWorld.instance().Prompt is None:
+            GlobalWorld.instance().Prompt = [
+                ("system", "you are a helpful assistant.")
+            ]
+        if GlobalWorld.instance().Prompt:
+            return True
+        return False
+    # 기초적인 프롬프트를 추가하는 메소드
+    def add_prompt(type__:str, message:str):
+        if (GlobalWorld.instance().Prompt is None):
+            return False
+        GlobalWorld.instance().Prompt.append((type__, message))
+        return True
+    # ollama에서 모델을 호출한다.
+    def getllm(ollama_model_name:str, temperature):
+        if GlobalWorld.instance().llm is None:
+            GlobalWorld.instance().llm = ChatOllama(model=ollama_model_name, temperature=temperature)
+        return GlobalWorld.instance().llm
+    # ollama에서 llm을 호출할때, 캐릭터와 메시지, 그리고 내용에 따라 미리 정의된 'prompt'를 호출한다.
+    # chain은 여기서 지역적으로 형성되며, 사라진다.
+    # value : 현재 메시지의 기준이며, 데이터 점검에 해당한다.
+    # 1 : set self body
+    # 2 : set self personality
+    # 3 : set self tendency
+    # 4 : set self Image
+    # 0 : nomar chatting
+    def Call_AI(name:str, input_msg:str, value:int):
+        text = [("system", f"your name is {name}.")]
+        for k in ['age', 'sex', 'personality', 'hobby', 'tendency', 'body']:
+            text.append(("system", f"your {k} is {GlobalWorld.instance().AI_Memory[name][k]}."))
+
+        if name not in GlobalWorld.Get_AI_Names():
+            return None
+        elif value == 1:
+            prompt = copy.deepcopy(GlobalWorld.instance().Prompt)
+            for t in text:
+                prompt.append(t)
+            prompt.append(('user', '{input}'))
+            prompt = ChatPromptTemplate.from_messages(prompt)
+            output_parser = StrOutputParser()
+            chain = prompt | GlobalWorld.instance().llm | output_parser
+
+            return chain.invoke({"input":"정의된 네 외모를 특징과 전체 모습을 직접 정의하여 설명하라"})
+        elif value == 2:
+            prompt = copy.deepcopy(GlobalWorld.instance().Prompt)
+            prompt = prompt
+            for t in text:
+                prompt.append(t)
+            prompt.append(('user', '{input}'))
+            prompt = ChatPromptTemplate.from_messages(prompt)
+            output_parser = StrOutputParser()
+            chain = prompt | GlobalWorld.instance().llm | output_parser
+            return chain.invoke({'input' : '정의된 내용을 보고 네 성격을 직접 정의하여 설명하라.'})
+        elif value == 3:
+            prompt = copy.deepcopy(GlobalWorld.instance().Prompt)
+            prompt = prompt
+            for t in text:
+                prompt.append(t)
+            prompt.append(('user', '{input}'))
+            prompt = ChatPromptTemplate.from_messages(prompt)
+            output_parser = StrOutputParser()
+            chain = prompt | GlobalWorld.instance().llm | output_parser
+            return chain.invoke({'input' : '정의된 내용을 보고 네 성향을 직접 정의하여 설명하라.'})
+        elif value == 4:
+            prompt = copy.deepcopy(GlobalWorld.instance().Prompt)
+            prompt = prompt
+            for t in text:
+                prompt.append(t)
+            prompt.append(('user', '{input}'))
+            prompt = ChatPromptTemplate.from_messages(prompt)
+            output_parser = StrOutputParser()
+            chain = prompt | GlobalWorld.instance().llm | output_parser
+            return chain.invoke({'input' : '정의된 네용을 보고 네가 본 네 모습을 직접 정의하여 설명하라.'})
+        
+    # Create_AI_Memory 
+    def Create_AI_Memory(name:str):
+        if name not in GlobalWorld.instance().AI_Memory.keys():
+            GlobalWorld.instance().AI_Memory = {name : {}}
+        return GlobalWorld.instance().AI_Memory is not None
+    # 기존에 저장된 페르소나를 입력받는 메소드
+    def Create_AI_Perusona(name:str, perusona:dict):
+        key_list = ['age', 'sex', 'personality', 'hobby', 'tendency', 'body', 'self_body', 'self_personality', 'self_tendency', 'self_image']
+        for k in key_list:
+            GlobalWorld.instance().AI_Memory[name][k] = perusona[k]
+        if len(GlobalWorld.instance().AI_Memory[name]['self_body']) == 0:
+            return False
+        elif len(GlobalWorld.instance().AI_Memory[name]['self_personality']) == 0:
+            return False
+        elif len(GlobalWorld.instance().AI_Memory[name]['self_tendency']) == 0:
+            return False
+        elif len(GlobalWorld.instance().AI_Memory[name]['self_image']) == 0:
+            return False
+        return True
+    
+    """
+    체크할 키 리스트를 받아, len을 조사하여 제대로 설정이 됐는지 검사
+    0 : 모두 설정되어 있음.
+    -1 : 이름이 존재하지 않음, 생성이 되지 않음
+    -2 : 첫 번째 키가 존재하지 않음(age)
+    -3 : 두 번째 키가 존재하지 않음(sex)
+    -4 : 세 번째 키가 존재하지 않음(personality)
+    -5 : 네 번째 키가 존재하지 않음(hobby)
+    -6 : 다섯번째 키가 존재하지 않음(tendency)
+    -7 : 여섯번째 키가 존재하지 않음(body)
+    -8 : 일곱번째 키가 존재하지 않음(self_body)
+    -9 : 여덟번째 키가 존재하지 않음(self_personality)
+    -10 : 아홉번째 키가 존재하지 않음(self_tendency)
+    -11 : 열번째 키가 존재하지 않음(self_image)
+    -12 : 키에 데이터가 저장되어 있지 않다.
+    """
+    def check_perusona(name:str, key:list):
+        if name not in GlobalWorld.Get_AI_Names():
+            return -1
+        code_return = {'age' : -2, 'sex' : -3, 'personality' : -4, 'hobby' : -5, 'tendency' : -6, 'body' : -7, 'self_body' : -8, 'self_personality' : -9, 'self_tendency' : -10, 'self_image' : -11}
+        def checking_type(key):
+            if k is int:
+                return 1
+            elif k is str:
+                return 2
+            elif k is dict:
+                return 3
+            elif k is list:
+                return 4
+            else:
+                return -1
+        for k in key:
+            if k not in GlobalWorld.Get_AI_Perusona(name).keys():
+                return -1
+            else:
+                if checking_type(GlobalWorld.Get_AI_Perusona(name)[k] == 1):
+                    continue
+                elif (checking_type(GlobalWorld.Get_AI_Perusona(name)[k]) == 2):
+                    if len(checking_type) == 0:
+                        return code_return[k]
+                    continue
+                elif (checking_type(GlobalWorld.Get_AI_Perusona(name)[k]) == 3):
+                    if len(checking_type.keys()) == 0:
+                        return code_return[k]
+                    continue
+                elif (checking_type(GlobalWorld.Get_AI_Perusona(name)[k]) == 4):
+                    if len(checking_type) == 0:
+                        return code_return[k]
+                    continue
+                elif checking_type(GlobalWorld.Get_AI_Perusona(name)[k] == -1):
+                    return -12
+                else:
+                    continue
+        return True
+    # Self_body, 즉 AI가 대화를 통해 정의한 자신의 외형을 설정하는 메소드
+    def Set_AI_Perusona_Self_body(name:str, data:str):
+        GlobalWorld.instance().AI_Memory[name]['self_body'] = data
+    # Self_personality, 즉 AI가 대화를 통해 정의한 자신의 성격을 설정하는 메소드
+    def Set_AI_Perusona_Self_Personality(name:str, data:str):
+        GlobalWorld.instance().AI_Memory[name]['self_personality'] = data
+    # Self_Tendency, 즉 AI가 대화를 통해 정의한 자신의 성향을 설정하는 메소드
+    def Set_AI_Perusona_Self_Tendency(name:str, data:str):
+        GlobalWorld.instance().AI_Memory[name]['self_tendency'] = data
+    # Self_Image, 즉 AI가 대화를 통해 정의한 자신의 이미지를 설정하는 메소드
+    def Set_AI_Perusona_Self_Image(name:str, data:str):
+        GlobalWorld.instance().AI_Memory[name]['self_image'] = data
+    # AI Perusona를 반환하는 메소드.
+    def Get_AI_Perusona(name:str):
+        return GlobalWorld.instance().AI_Memory[name]
+    # 실행중인 AI Perusona의 정보의 key를 받아오는 메소드
+    def Get_AI_Names():
+        return GlobalWorld.instance().AI_Memory.keys()
+    # 생성자
     def __init__(self):
-        self.world_system = [("system", "you are helpful assistant.")]
         self.AI_Memory = {}
-    # system Prompts 입력받아 생성하는 클래스
-    def setPrompt(self, system:list):
-        print(self.world_system)
-        print(system)
-        for s in system:
-            self.world_system.append(s)
-        self.prompt = ChatPromptTemplate.from_messages(self.world_system)
-    # 대화하는 AI의 정보를 입력받는 클래스, 여기서는 ProjectConfig를 활용하여 생성하도록 한다. 단, dict 타입의 형태로 받을 것.
-    # 최초에 등록해야만 하는 정보는 이곳에서 등록된다.
-    # 실행 중, 수정될 수 있는 정보는 
-    def setTalkCharacter(self, character:dict):
-        name = character.keys()
-        age = character[name]['age']
-        sex = character[name]['sex']
-        personality = character[name]['personality']
-        hobby = character[name]['hobby']
     @staticmethod
+    # singleton 패턴 인스턴스
     def instance():
         if GlobalWorld._instance is None:
             GlobalWorld._instance = GlobalWorld()
