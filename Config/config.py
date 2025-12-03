@@ -78,39 +78,39 @@ class ProgrameAction(Enum):
     # AI 로드가 완료되었습니다.
     FinishedLoadLLM = 0xfff023
     # AI의 페르소나를 제작합니다.
-    CreateAIPerusona = 0xfff024
+    CreateAIPersona = 0xfff024
     # AI의 페르소나가 제작취소되었습니다.
-    CancleCreateAIPerusona = 0xfff025
+    CancleCreateAIPersona = 0xfff025
     # AI의 이름을 설정해주세요.
     NeedToAIName = 0xfff026
     # AI의 이름을 설정했습니다.
-    SetAIPerusonaName = 0xfff027
+    SetAIPersonaName = 0xfff027
     # AI의 성별을 설정해주세요.
     NeedToAISex = 0xfff028
     # AI의 성별을 설정했습니다.
-    SetAIPerusonaSex = 0xfff029
+    SetAIPersonaSex = 0xfff029
     # AI의 연령을 설정해주세요.
     NeedToAIAge = 0xfff02a
     # AI의 연령을 설정했습니다.
-    SetAIPerusonaAge = 0xfff02b
+    SetAIPersonaAge = 0xfff02b
     # AI의 성격을 설정해 주세요.
     NeedToAIPersonality = 0xfff02c
     # AI의 성격을 설정했습니다.
-    SetAIPerusonaPersonality = 0xfff02d
+    SetAIPersonaPersonality = 0xfff02d
     # AI의 성향을 설정해 주세요.
     NeedToAITendency = 0xfff02e
     # AI의 성향을 설정했습니다.
-    SetAIPerusonaTendency = 0xfff02f
+    SetAIPersonaTendency = 0xfff02f
     # AI의 취미를 설정해 주세요.
     NeedToAIHubby = 0xfff030
     # AI의 취미를 설정했습니다.
-    SetAIPerusonaHubby = 0xfff031
+    SetAIPersonaHubby = 0xfff031
     # AI의 외형을 설정해 주세요
     NeedToAIBody = 0xfff032
     # AI의 외형을 설정했습니다.
-    SetAIPerusonaBody = 0xfff033
+    SetAIPersonaBody = 0xfff033
     # 기본 설정을 마쳤습니다.
-    SuccessBaigicSetupAIPerusona = 0xfff034
+    SuccessBaigicSetupAIPersona = 0xfff034
     # AI가 스스로의 성격을 생각합니다.
     ThinkPersonalityAISelf = 0xfff035
     # AI가 스스로의 성격을 정의합니다.
@@ -146,9 +146,9 @@ class ProgrameAction(Enum):
     # 다음 항목으로 넘어간다.
     PassNextArticles = 0xfff045
     # AI의 페르소나가 완성되었습니다.
-    FinishedCreationAIPerusona = 0xfff046
+    FinishedCreationAIPersona = 0xfff046
     # AI의 페르소나를 만드는데 실패했습니다.
-    FailedCreateAIPerusona = 0xfff047
+    FailedCreateAIPersona = 0xfff047
     # AI에게 메시지를 보냈습니다.
     SendMessageLLM = 0xfff048
     # AI가 답변을 생성했습니다.
@@ -160,9 +160,9 @@ class ProgrameAction(Enum):
     # 다시 생성합니다.
     Regenerator = 0xfff04c
     # AI 페르소나를 다시 만드세요.
-    RemakeAIPerusona = 0xfff04d
+    RemakeAIPersona = 0xfff04d
     # AI 패르소나를 불러옵니다.
-    LoadAIPerusona = 0xfff04e
+    LoadAIPersona = 0xfff04e
     # JsonFile에 오류가 발생했습니다.
     ErrorFileJson = 0xfff04f
     # 파일을 저장하라는 메시지를 보냅니다.
@@ -210,18 +210,18 @@ EVENT_MAPPING = {
     ProgrameAction.LoadLLMModel: "LoadLLMModel",
     ProgrameAction.WrongLLMModelName: "WrongLLMModelName",
     ProgrameAction.FinishedLoadLLM: "FinishedLoadLLM",
-    ProgrameAction.CreateAIPerusona: "CreateAIPerusona",
-    ProgrameAction.SetAIPerusonaName: "SetAIPerusonaName",
-    ProgrameAction.SetAIPerusonaSex: "SetAIPerusonaSex",
-    ProgrameAction.SetAIPerusonaPersonality: "SetAIPerusonaPersonality",
-    ProgrameAction.SetAIPerusonaTendency: "SetAIPerusonaTendency",
-    ProgrameAction.SetAIPerusonaHubby: "SetAIPerusonaHubby",
-    ProgrameAction.SetAIPerusonaBody: "SetAIPerusonaBody",
+    ProgrameAction.CreateAIPersona: "CreateAIPersona",
+    ProgrameAction.SetAIPersonaName: "SetAIPersonaName",
+    ProgrameAction.SetAIPersonaSex: "SetAIPersonaSex",
+    ProgrameAction.SetAIPersonaPersonality: "SetAIPersonaPersonality",
+    ProgrameAction.SetAIPersonaTendency: "SetAIPersonaTendency",
+    ProgrameAction.SetAIPersonaHubby: "SetAIPersonaHubby",
+    ProgrameAction.SetAIPersonaBody: "SetAIPersonaBody",
     ProgrameAction.AIDefineSelfPersonality:"AIDefineSelfPersonality",
     ProgrameAction.AIDefineSelfTendency:"AIDefineSelfTendency",
     ProgrameAction.AIDefineSelfBody:"AIDefineSelfBody",
     ProgrameAction.AIDefineSelfImage:"AIDefineSelfImage",
-    ProgrameAction.FinishedCreationAIPerusona: "FinishedCreationAIPerusona",
+    ProgrameAction.FinishedCreationAIPersona: "FinishedCreationAIPersona",
     ProgrameAction.SendMessageLLM: "SendMessageLLM",
     ProgrameAction.CreateAnswerLLM: "CreateAnswerLLM",
     ProgrameAction.ArrangementOfTalk: "ArrangementOfTalk",

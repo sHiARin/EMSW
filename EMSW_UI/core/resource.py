@@ -16,6 +16,7 @@ from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_community.chat_models import ChatOllama
 from langchain_core.output_parsers import StrOutputParser
 
+from pathlib import Path
 import copy, os, json, zipfile, io, pytz, requests, subprocess
 
 """
@@ -29,7 +30,7 @@ class GlobalSignalHub(QObject):
     # global project dir로 공유하는 메소드
     dir = Signal(str)
     # global message를 공유하는 변수
-    message = ''
+    message = Signal(str)
     windows_data = {'x' : 100, 'y' : 100, 'width' : 600, 'height' : 800}
     # 싱글턴 패턴
     _instance = None
@@ -46,507 +47,343 @@ class GlobalSignalHub(QObject):
 """
 
 class ProjectConfig:
-    def __init__(self, PROGRAME_DATA:dict, tz_:str):
-        self.tz_ = pytz.timezone(tz_)
-        self.buffer = io.BytesIO()
-        self.Save = False
-        self.dir = ''
-        self.name = ''
-        self.ProjectItems = {
-                                'AI_Data' : {
-                                        'sample' : {
-                                                "date" : {
-                                                    "time" : {
-                                                            "name" : "content",
-                                                            "user" : "content",
-                                                            },
-                                                        },
-                                                "summary" : {
-                                                    "date" : "summary_data",
-                                                },
-                                            },
-                                }, "AI_World" :{
-                                        'sample' : {
-                                            'contry' : {
-                                                'name' : 'content',
-                                                'populate' : 'number',
-                                                'political_system' : 'content',
-                                                'citis' : [],
-                                                'low' : [],
-                                                'economic_system'  : 'content',
-                                                'leader' : 'content',
-                                                'cultural_level' : [],
-                                            },
-                                            'world' : {
-                                                'continent' : [],
-                                                'continent_name' : {},
-                                                'continent_populate' : {},
-                                                'continent_contries' : {},
-                                                'continent_resource' : {},
-                                                'continent_ecosystem' : {},
-                                            }
-                                        }
-                                
-                                }, "AI_Perusona" : {
-                                                    'sample' : {
-                                                            "age" : 0,
-                                                            "sex" : 'content',
-                                                            'personality' : "content",
-                                                            'hobby' : 'content',
-                                                            'tendency' : 'content',
-                                                            'body' : 'content',
-                                                            'self_body' : [],
-                                                            'self_personality' : [],
-                                                            'self_tendency' : [],
-                                                            'self_image' : [],
-                                                            'note' : [],
-                                                            'hobby_data_type' : 'str',
-                                                            'personality_data_type' : "str",
-                                                            'tendency_data_type' : "str",
-                                                            'body_data_type' : "str",
-                                                    }
-                                }, "documents" : {
-                                                    'sample' : {
-                                                        'title' : 'content',
-                                                        'index' : 'content',
-                                                        'text' : 'content',
-                                                },
-                                }, 'data' : {
-                                            'sample' : {
-                                                            'type' : 'content',
-                                                        }
-                                }, "timer" : {
-                                    'sample' : {
-                                        'input_time' : 0,
-                                        'focus_time' : 0,
-                                        'active_time' : 0,
-                                    }
-                                }, "wiki" : {
-                                    "sample" : {
-                                        "index" : [],
-                                        "bodies" : []
-                                    }
-                                }
-                            }
-        self.metadata = {
-                            "ProgrameData" : {
-                                'windows_pos' : {
-                                                    'x':100,
-                                                    'y':100
-                                                },
-                                'windows_scale' : {
-                                                'width':800,
-                                                'height':500
-                                            },
-                                'perusona_editing_windows' : {
-                                    'rows_width' : [],
-                                    'row_height' : 300,
-                                    'x' : 100,
-                                    'y' : 100,
-                                    'w' : 400,
-                                    'h' : 300,
-                                },
-                            },
-                            "ProjectItems" : {
-                                "AI_Perusona" : ['sample'],
-                                "AI_World" : ['sample'],
-                                "AI_Data" : ['sample'],
-                                "documents" : ['sample'],
-                                "data" : ['sample'],
-                                "timer" : ['sample'],
-                                "wiki" : [ "sample" ]
-                            },
-                        }
-        if len(PROGRAME_DATA['Last Open Project']) == 0 and not os.path.exists(PROGRAME_DATA['Last Open Project']):
-            with zipfile.ZipFile(self.buffer, "w", zipfile.ZIP_DEFLATED) as file:
-                file.writestr("METADATA", f"{self.metadata}")
-                file.writestr("AI_Perusona/", "{}")
-                file.writestr("AI_World/", "{}")
-                file.writestr("AI_Data/", "{}")
-                file.writestr("documents/", "{}")
-                file.writestr("data/", "{}")
-                file.writestr("timer/", "{}")
-                file.writestr("wiki/", "{}")
-        if len(PROGRAME_DATA['Last Open Project']) != 0 and os.path.exists(PROGRAME_DATA['Last Open Project']):
-            self.open_project('/'.join(PROGRAME_DATA['Last Open Project'].split['/'][0:-1]), PROGRAME_DATA['Last Open Project'].split('/')[-1])
-        self.__save_Project__()
-    def get_chat_history(self, name:str):
-        """
-        특정 AI 페르소나의 채팅 기록을 시간 순서대로 정렬하여 반환
-        Return : list of dict [{'sender' : 'user' | 'ai', 'msg':'text, 'time':str}, ...]
-        """
+    # 기본 데이터 구조 정의 (상수)
+    DEFAULT_PROJECT_ITEMS = {
+        'AI_Data': {
+            'sample': {
+                "date": {"time": {"name": "content", "user": "content"}},
+                "summary": {"date": "summary_data"},
+            }
+        },
+        'AI_World': {
+            'sample': {
+                'contry': {'name': 'content', 'populate': 'number', 'political_system': 'content', 'citis': [], 'low': [], 'economic_system': 'content', 'leader': 'content', 'cultural_level': []},
+                'world': {'continent': [], 'continent_name': {}, 'continent_populate': {}, 'continent_contries': {}, 'continent_resource': {}, 'continent_ecosystem': {}}
+            }
+        },
+        'AI_Persona': {
+            'sample': {
+                "age": 0, "sex": 'content', 'personality': "content", 'hobby': 'content', 'tendency': 'content', 'body': 'content',
+                'self_body': [], 'self_personality': [], 'self_tendency': [], 'self_image': [], 'note': [],
+                'hobby_data_type': 'str', 'personality_data_type': "str", 'tendency_data_type': "str", 'body_data_type': "str",
+            }
+        },
+        'documents': {'sample': {'title': 'content', 'index': 'content', 'text': 'content'}},
+        'data': {'sample': {'type': 'content'}},
+        'timer': {'sample': {'input_time': 0, 'focus_time': 0, 'active_time': 0}},
+        'wiki': {"sample": {"index": [], "bodies": []}}
+    }
+
+    DEFAULT_METADATA = {
+        "ProgrameData": {
+            'windows_pos': {'x': 100, 'y': 100},
+            'windows_scale': {'width': 800, 'height': 500},
+            'Persona_editing_windows': {'rows_width': [], 'row_height': 300, 'x': 100, 'y': 100, 'w': 400, 'h': 300},
+        },
+        "ProjectItems": {
+            k: ['sample'] for k in DEFAULT_PROJECT_ITEMS.keys()
+        }
+    }
+
+    def __init__(self, program_data: dict, tz_str: str):
+        self.tz = pytz.timezone(tz_str)
+        self.project_dir = Path('')
+        self.project_name = ''
+        
+        # 데이터 초기화 (Deep Copy로 참조 문제 방지)
+        self.project_items = copy.deepcopy(self.DEFAULT_PROJECT_ITEMS)
+        self.metadata = copy.deepcopy(self.DEFAULT_METADATA)
+
+        # 마지막 프로젝트 열기 시도
+        last_project_path = program_data.get('Last Open Project', '')
+        if last_project_path and os.path.exists(last_project_path):
+            path = Path(last_project_path)
+            self.open_project(str(path.parent), path.name)
+        else:
+            # 임시 파일 생성
+            self._save_to_zip('./data/.tmp._tmsw_')
+
+    # =========================================================================
+    # File I/O (Core)
+    # =========================================================================
+    def new_project_files(self, file_path: str):
+        path = Path(file_path)
+        self.project_dir = path.parent
+        self.project_name = path.name
+        print(f"New Project: {path}")
+        
+        self.save_project()
+        
+        # 임시 파일 삭제
+        temp_file = Path('./data/.tmp._tmsw_')
+        if temp_file.exists():
+            temp_file.unlink()
+
+    def open_project(self, directory: str, name: str):
+        if not directory and not name:
+            return None
+
+        path = Path(directory) / name
+        if not path.exists():
+            print(f"Error: File not found {path}")
+            return
+
+        temp_items = {}
+        
+        try:
+            with zipfile.ZipFile(path, 'r') as zf:
+                for filename in zf.namelist():
+                    if filename.endswith('/'): continue
+                    
+                    # 폴더/파일명 분리
+                    parts = filename.split('/', 1)
+                    folder = parts[0] if len(parts) > 1 else ''
+                    fname = parts[1] if len(parts) > 1 else filename
+
+                    with zf.open(filename) as f:
+                        content = f.read().decode('utf-8')
+                        try:
+                            data = json.loads(content)
+                        except json.JSONDecodeError:
+                            data = content
+                    
+                    if folder not in temp_items:
+                        temp_items[folder] = {}
+                    temp_items[folder][fname] = data
+
+            # 메타데이터 로드
+            if 'METADATA' in temp_items.get('', {}):
+                self.metadata = temp_items['']['METADATA']
+
+            # 섹션별 데이터 복원 헬퍼
+            def restore_section(section_key, ext):
+                restored = {}
+                # Zip 안의 폴더명과 ProjectItems 키가 같다면 바로 사용
+                source = temp_items.get(section_key, {})
+                for fname, content in source.items():
+                    if fname.endswith(ext):
+                        name_key = fname.replace(ext, '')
+                        restored[name_key] = content
+                self.project_items[section_key] = restored
+
+            # 데이터 매핑 및 복원
+            mapping = {
+                'AI_Data': '.adata', 'AI_World': '.aworld', 'AI_Persona': '.profile',
+                'documents': '.doct', 'data': '.data', 'timer': '.time', 'wiki': '.wiki'
+            }
+            for key, ext in mapping.items():
+                restore_section(key, ext)
+
+            self.project_dir = Path(directory)
+            self.project_name = name
+            
+            # 임시 파일 정리
+            temp_file = Path('./data/.tmp._tmsw_')
+            if temp_file.exists():
+                temp_file.unlink()
+                
+        except Exception as e:
+            print(f"Failed to open project: {e}")
+
+    def save_project(self):
+        """현재 상태를 파일로 저장"""
+        if not self.project_dir or not self.project_name:
+            target_path = Path('./data/.tmp._tmsw_')
+        else:
+            target_path = self.project_dir / self.project_name
+        
+        self._save_to_zip(target_path)
+        print(f"Saved to: {target_path}")
+
+    def _save_to_zip(self, path):
+        """실제 Zip 파일 쓰기 로직 (중복 제거됨)"""
+        # 확장자 매핑
+        ext_map = {
+            'AI_Data': '.adata', 'AI_World': '.aworld', 'AI_Persona': '.profile',
+            'documents': '.doct', 'data': '.data', 'timer': '.time', 'wiki': '.wiki'
+        }
+
+        # 디렉토리 생성
+        target = Path(path)
+        target.parent.mkdir(parents=True, exist_ok=True)
+
+        try:
+            with zipfile.ZipFile(target, 'w', zipfile.ZIP_DEFLATED) as z:
+                # 메타데이터 저장
+                z.writestr('METADATA', json.dumps(self.metadata, ensure_ascii=False, indent=4))
+                
+                # 각 아이템 저장
+                for section, ext in ext_map.items():
+                    items = self.project_items.get(section, {})
+                    for name, content in items.items():
+                        file_path = f"{section}/{name}{ext}"
+                        z.writestr(file_path, json.dumps(content, ensure_ascii=False))
+        except Exception as e:
+            print(f"Save failed: {e}")
+
+    def change_project_title(self, new_title: str):
+        if not self.project_dir or not self.project_name:
+            self.project_name = new_title
+            return
+
+        old_path = self.project_dir / self.project_name
+        new_path = self.project_dir / new_title
+        
+        if old_path.exists():
+            try:
+                old_path.rename(new_path)
+                self.project_name = new_title
+            except OSError as e:
+                print(f"Rename failed: {e}")
+
+    # =========================================================================
+    # Data Accessors (Getter/Setter)
+    # =========================================================================
+    
+    # --- Metadata Access ---
+    def program_data(self):
+        return self.metadata['ProgrameData']
+
+    def get_position(self):
+        pos = self.metadata['ProgrameData']['windows_pos']
+        return [pos['x'], pos['y']]
+
+    def get_scale(self):
+        scale = self.metadata['ProgrameData']['windows_scale']
+        return [scale['width'], scale['height']]
+
+    def update_position(self, x, y):
+        self.metadata['ProgrameData']['windows_pos'].update({'x': x, 'y': y})
+
+    def update_scale(self, width, height):
+        self.metadata['ProgrameData']['windows_scale'].update({'width': width, 'height': height})
+        
+    def set_height(self, height):
+        self.metadata['ProgrameData']['windows_scale']['height'] = height
+
+    def set_width(self, width):
+        self.metadata['ProgrameData']['windows_scale']['width'] = width
+
+    # --- Persona Access ---
+    def get_persona_dict(self):
+        return self.project_items['AI_Persona']
+    
+    def get_persona_names(self):
+        return self.project_items['AI_Perusona']
+
+    def search_persona_name(self, name: str):
+        return name in self.project_items['AI_Persona']
+
+    def updatepersonaName(self, name: str):
+        """새 페르소나 생성 (Sample 복사)"""
+        print(self.project_items['AI_Persona'].keys())
+        if name not in self.project_items['AI_Persona']:
+            self.project_items['AI_Persona'][name] = copy.deepcopy(self.DEFAULT_PROJECT_ITEMS['AI_Persona']['sample'])
+            return True
+        return False
+
+    def _update_persona_field(self, name, field, value, data_type=None):
+        """페르소나 필드 업데이트 공통 로직"""
+        if name in self.project_items['AI_Persona']:
+            self.project_items['AI_Persona'][name][field] = value
+            if data_type:
+                self.project_items['AI_Persona'][name][f'{field}_data_type'] = data_type
+            return True
+        return False
+
+    def updatepersonaAge(self, name, age):
+        return self._update_persona_field(name, 'age', age)
+
+    def updatepersonaSex(self, name, sex):
+        return self._update_persona_field(name, 'sex', sex)
+
+    def updatepersonaHobby(self, name, hobby, data_type):
+        return self._update_persona_field(name, 'hobby', hobby, data_type)
+
+    def updatepersonaPersonality(self, name, personality, data_type):
+        return self._update_persona_field(name, 'personality', personality, data_type)
+
+    def updatepersonaTendency(self, name, tendency, data_type):
+        return self._update_persona_field(name, 'tendency', tendency, data_type)
+
+    def updatepersonaBody(self, name, body, data_type):
+        return self._update_persona_field(name, 'body', body, data_type)
+
+    # --- Persona Setters (Self-Image) ---
+    def set_ai_persona_self_body(self, name, value):
+        self._update_persona_field(name, 'self_body', value)
+    
+    def set_ai_persona_Self_personality(self, name, value):
+        self._update_persona_field(name, 'self_personality', value)
+         
+    def set_ai_perusona_self_tendency(self, name, value):
+        self._update_persona_field(name, 'self_tendency', value)
+         
+    def Set_AI_Perusona_Self_Image(self, name, value):
+        self._update_persona_field(name, 'self_image', value)
+
+    # --- Persona Getters ---
+    def getAge(self, name): return self.project_items['AI_Persona'][name].get('age')
+    def getSex(self, name): return self.project_items['AI_Persona'][name].get('sex')
+    def getPersonality(self, name): return self.project_items['AI_Persona'][name].get('personality')
+    def getHobby(self, name): return self.project_items['AI_Persona'][name].get('hobby')
+    def getTendency(self, name): return self.project_items['AI_Persona'][name].get('tendency')
+    def getBody(self, name): return self.project_items['AI_Persona'][name].get('body')
+    
+    def getSelfBody(self, name): return self.project_items['AI_Persona'][name].get('self_body', [])
+    def getSelfPersonality(self, name): return self.project_items['AI_Persona'][name].get('self_personality', [])
+    def getSelfTendency(self, name): return self.project_items['AI_Persona'][name].get('self_tendency', [])
+    def getSelfImage(self, name): return self.project_items['AI_Persona'][name].get('self_image', [])
+    
+    def getPerusonaEditing_windowData(self):
+        return self.metadata['ProgrameData']['Persona_editing_windows']
+
+    # =========================================================================
+    # Chat Logic
+    # =========================================================================
+    def get_chat_history(self, name: str):
+        """채팅 기록을 시간 순으로 정렬하여 리스트로 반환"""
         chat_list = []
-        ai_data_root = self.ProjectItems.get('AI_Data, {}')
-        target_ai = ai_data_root.get(name, [])
+        target_ai = self.project_items.get('AI_Data', {}).get(name, {})
 
         if not target_ai:
             return []
-        dates = sorted(target_ai.keys())
-        
-        for date_key in dates:
-            if date_key == 'summary': continue # summary 키 제외
+
+        # 날짜 정렬
+        for date_key in sorted(target_ai.keys()):
+            if date_key == 'summary': continue
             
             time_data = target_ai[date_key]
-            # 3. 시간별 정렬 (Keys: HH:MM:SS)
-            times = sorted(time_data.keys())
-            
-            for time_key in times:
+            # 시간 정렬
+            for time_key in sorted(time_data.keys()):
                 content = time_data[time_key]
+                timestamp = f"{date_key} {time_key}"
                 
-                # 구조: { 'name': 'ai_msg', 'user': 'user_msg' }
-                # 시간 순서상 User가 먼저 말하고 AI가 답했다고 가정하거나,
-                # 데이터가 있는 것만 리스트에 추가
+                # User 메시지
+                if content.get('user'):
+                    chat_list.append({'sender': 'user', 'msg': content['user'], 'timestamp': timestamp})
                 
-                # 사용자 메시지
-                if 'user' in content and content['user']:
-                    chat_list.append({
-                        'sender': 'user',
-                        'msg': content['user'],
-                        'timestamp': f"{date_key} {time_key}"
-                    })
-                
-                # AI 메시지 (key가 'name'이라고 되어있는 부분)
-                if 'name' in content and content['name']:
-                    chat_list.append({
-                        'sender': 'ai',
-                        'msg': content['name'],
-                        'timestamp': f"{date_key} {time_key}"
-                    })
+                # AI 메시지 (키가 'name'인 부분)
+                if content.get('name'):
+                    chat_list.append({'sender': 'ai', 'msg': content['name'], 'timestamp': timestamp})
                     
         return chat_list
+
     def add_chat_message(self, ai_name: str, sender_type: str, message: str):
-        """
-        채팅 메시지를 구조에 맞게 저장하고 버퍼를 갱신함
-        sender_type: 'user' or 'ai'
-        """
-        now = datetime.datetime.now()
+        """채팅 메시지 저장"""
+        now = datetime.datetime.now(self.tz)
         date_str = now.strftime("%Y-%m-%d")
         time_str = now.strftime("%H:%M:%S")
 
-        # 1. 경로 확보 (AI_Data -> ai_name -> date -> time)
-        if 'AI_Data' not in self.ProjectItems:
-            self.ProjectItems['AI_Data'] = {}
-            
-        if ai_name not in self.ProjectItems['AI_Data']:
-            self.ProjectItems['AI_Data'][ai_name] = {}
-            
-        if date_str not in self.ProjectItems['AI_Data'][ai_name]:
-            self.ProjectItems['AI_Data'][ai_name][date_str] = {}
-            
-        # 2. 해당 시간 데이터 생성
-        # 같은 초(sec)에 대화가 오갈 수 있으므로, 기존 키가 있으면 병합하거나 덮어씀
-        current_block = self.ProjectItems['AI_Data'][ai_name][date_str].get(time_str, {})
-        
+        # 데이터 경로 안전하게 생성
+        ai_data = self.project_items.setdefault('AI_Data', {}).setdefault(ai_name, {})
+        date_block = ai_data.setdefault(date_str, {})
+        current_block = date_block.setdefault(time_str, {'name': '', 'user': ''})
+
         if sender_type == 'user':
             current_block['user'] = message
-            # AI 응답 자리가 없으면 빈칸으로 두거나 유지
-            if 'name' not in current_block:
-                current_block['name'] = ""
         else:
-            current_block['name'] = message # 'name' 키가 AI의 답변 내용
-            if 'user' not in current_block:
-                current_block['user'] = ""
-
-        self.ProjectItems['AI_Data'][ai_name][date_str][time_str] = current_block
-        # print(f"Saved: {self.ProjectItems['AI_Data'][ai_name][date_str][time_str]}")
-    def ProjectName(self, name:str):
-        self.name = name
-    def ProjectDir(self, dir:str):
-        self.dir = dir
-    def __key_check__(self, meta:dict, keys:list):
-        for k in keys:
-            if k not in meta.keys():
-                return False
-        return True
-    def change_project_title(self, title):
-        old_path = f"{self.dir}/{self.name}"
-        self.name = title
-        if os.path.exists(old_path) and self.name:
-            new_path = f"{self.dir}/{self.name}"
-            try:
-                os.rename(old_path, new_path)
-            except OSError as e:
-                print("이름 변경 실패!")
-    def __MakeMetaGroup__(self, nmae:dir):
-        os.mkdir(f"{self.dir}/{nmae}")
-    def __save_meta__(self):
-        if 1 < len(self.metadata_dir.split('/')):
-            with open(self.metadata_dir, 'w', encoding='utf-8') as file:
-                json.dump(self.metadata, file)
-    def __update_project_items_to_metadata__(self):
-        self.ProjectItems = self.metadata['ProjectItems']
-    def open_project(self, dir:str, name:str):
-        if len(dir) == 0 and len(name) == 0:
-            return None
-        path = os.path.join(dir, name)
-        tdict = {}
-
-        with zipfile.ZipFile(path, 'r') as zf:
-            file_list = zf.namelist()
-            for f in file_list:
-                if f.endswith('/'):
-                    continue
-                if '/' in f:
-                    folder, filename = f.split('/', 1)
-                else:
-                    folder, filename = '', f
-                with zf.open(f) as inner:
-                    raw = inner.read().decode('utf-8')
-                try:
-                    data = json.loads(raw)
-                except json.JSONDecodeError:
-                    data = raw
-                if folder not in tdict:
-                    tdict[folder] = {}
-                tdict[folder][filename] = data
-        metaroot = tdict.get('', {})
-        self.metadata = metaroot.get('METADATA', self.metadata)
-
-        def _restore_section(folder_name: str, project_key: str, ext: str):
-            section = {}
-            folder_dict = tdict.get(folder_name, {})
-            for filename, content in folder_dict.items():
-                name_part, file_ext = os.path.splitext(filename)
-                if file_ext == ext:
-                    section[name_part] = content
-            self.ProjectItems[project_key] = section
-
-        _restore_section('AI_Data',     'AI_Data',     '.adata')
-        _restore_section('AI_World',    'AI_World',    '.aworld')
-        _restore_section('AI_Perusona', 'AI_Perusona', '.profile')
-        _restore_section('documents',   'documents',   '.doct')
-        _restore_section('data',        'data',        '.data')
-        _restore_section('timer',       'timer',       '.time')
-
-        self.dir = dir
-        self.name = name
-
-        print(self.metadata)
-        print(self.ProjectItems)
-
-        os.remove('./data/.tmp._tmsw_')
-    def new_project_files(self, dir:str):
-        self.dir = '/'.join(dir.split('/')[0:-1])
-        self.name = dir.split('/')[-1]
-        print(f"{'/'.join(dir.split('/')[0:-1])}/{dir.split('/')[-1]}")
-        self.__save_Project__()
-        os.remove('.\data\.tmp._tmsw_')
-    def ProjectFiles(self):
-        return self.metadata['Project_Files']
-    def ProgrameData(self):
-        return self.metadata['ProgrameData']
-    def getPosition(self):
-        return [self.metadata['ProgrameData']['windows_pos']['x'], self.metadata['ProgrameData']['windows_pos']['y']]
-    def getScale(self):
-        return [self.metadata['ProgrameData']['windows_scale']['width'], self.metadata['ProgrameData']['windows_scale']['height']]
-    def setHeight(self, height):
-        print(self.metadata['ProgrameData']['windows_scale']['height'], height)
-        self.metadata['ProgrameData']['windows_scale']['height'] = height
-    def setWidth(self, width):
-        print(self.metadata['ProgrameData']['windows_scale']['width'], width)
-        self.metadata['ProgrameData']['windows_scale']['width'] = width
-    def updatePosition(self, x, y):
-        self.metadata['ProgrameData']['windows_pos']['x'] = x
-        self.metadata['ProgrameData']['windows_pos']['y'] = y
-    def updateScale(self, width, height):
-        self.metadata['ProgrameData']['windows_scale']['width'] = width
-        self.metadata['ProgrameData']['windows_scale']['height'] = height
-    def SearchPerusonaName(self, name:str):
-        return name in self.ProjectItems['AI_Perusona'].keys()
-    def updatePerusonaName(self, name:str):
-        self.ProjectItems['AI_Perusona'].keys()
-        if name not in self.ProjectItems['AI_Perusona'].keys():
-            source_data = self.ProjectItems['AI_Perusona']['sample']
-            new_data = copy.deepcopy(source_data)
-            self.ProjectItems['AI_Perusona'][name] = new_data
-            return True
-        else:
-            return False
-    def updatePerusonaAge(self, name:str, age:int):
-        if self.SearchPerusonaName(name):
-            self.ProjectItems['AI_Perusona'][name]['age'] = age
-            return True
-        else:
-            return False 
-    def updatePerusonaSex(self, name:str, sex:str):
-        if self.SearchPerusonaName(name):
-            self.ProjectItems['AI_Perusona'][name]['sex'] = sex
-            return True
-        else:
-            return False
-    def updatePerusonaHobby(self, name:str, hobby, data_type:str):
-        if self.SearchPerusonaName(name):
-            self.ProjectItems['AI_Perusona'][name]['hobby'] = hobby
-            self.ProjectItems['AI_Perusona'][name]['hobby_data_type'] = data_type
-            return True
-        else:
-            return False
-    def updatePerusonaPersonality(self, name:str, personality, data_type:str):
-        if self.SearchPerusonaName(name):
-            if data_type == "str" or data_type == "dict" or data_type == "list":
-                self.ProjectItems['AI_Perusona'][name]['personality'] = personality
-                self.ProjectItems['AI_Perusona'][name]['personality_data_type'] = data_type
-                return True
-            else: return False
-        else: return False
-    def updatePerusonaTendency(self, name:str, tendency, data_type:str):
-        if self.SearchPerusonaName(name):
-            if data_type == "str" or data_type == "dict" or data_type == "list":
-                self.ProjectItems['AI_Perusona'][name]['tendency'] = tendency
-                self.ProjectItems['AI_Perusona'][name]['tendency_data_type'] = data_type
-        else:
-            return False
-    def updatePerusonaBody(self, name:str, body, data_type:str):
-        if self.SearchPerusonaName(name):
-            if data_type == "str" or data_type == "dict" or data_type == "list":
-                self.ProjectItems['AI_Perusona'][name]['body'] = body
-                self.ProjectItems['AI_Perusona'][name]['body_data_type']  = data_type
-                return True
-            else:
-                return False
-        else:
-            return False
-    def updatePerusonaEditWindowColumnsLength(self, columns:list):
-        self.metadata['ProgrameData']['rows_width'] = columns
-    def updatePerusonaEditWindowPosition(self, x:int, y:int):
-        self.metadata['ProgrameData']['x'] = x
-        self.metadata['ProgrameData']['y'] = y
-    def updatePerusonaEditWindowScale(self, w:int, h:int):
-        self.metadata['ProgrameData']['w'] = w
-        self.metadata['ProgrameData']['h'] = h
-    def getPerusonaDict(self):
-        return self.ProjectItems['AI_Perusona']
-    def getPerusonaEditing_windowData(self):
-        return self.metadata['ProgrameData']['perusona_editing_windows']
-    def AIChattingList(self):
-        return self.ProjectItems['AI_Data'].keys()
-    def isInAIChatting(self, ai_name:str):
-        return ai_name in self.ProjectItems['AI_Data'].keys()
-    def sendUserMessage(self, ai_name:str, message:str, tz_:datetime.tzinfo):
-        date = ['월요일', '화요일', '수요일', '목요일', '금요일', '토요일', '일요일']
-        nowTime = datetime.now(tz_)
-        if not self.isInAIChatting(ai_name):
-            GlobalSignalHub.instance().programe_signal.emit(ProgrameAction.CreateNewAIChatting)
-            return True
-        else:
-            self.ProjectItems[ai_name][date[nowTime.weekday()]] = {f"{nowTime.hour()}" : {f"{nowTime.minute()} : {nowTime.second()} : {nowTime.microsecond}" : {"user" : message}}}
-            GlobalSignalHub.instance().programe_signal = ProgrameAction.SendMessageSuccess
-            return True
-    def sendAIMessage(self, ai_name:str, ai_message:str):
-        date = ['월요일', '화요일', '수요일', '목요일', '금요일', '토요일', '일요일']
-        if not self.isInAIChatting(ai_name):
-            GlobalSignalHub.instance().programe_signal.emit(ProgrameAction.CreateNewAIChatting)
-            return True
-        else:
-            nowTime = datetime.now(self.tz_)
-            self.ProjectItems[ai_name][date[nowTime.weekday()]] = {f"{nowTime.hour()}" : {f"{nowTime.minute()} : {nowTime.second()} : {nowTime.microsecond}" : {"user" : ai_message}}}
-            GlobalSignalHub.instance().programe_signal = ProgrameAction.SendMessageSuccess
-            return True
-    def __make_file__(self):
-        ai_data_file = {}
-        for k in self.ProjectItems['AI_Data'].keys():
-            self.metadata['ProjectItems']['AI_Data'].append(f"{k}.adata")
-            ai_data_file[k] = self.ProjectItems['AI_Data'][k]
-        ai_word_file = {}
-        self.metadata['ProjectItems']['AI_World'] = []
-        for k in self.ProjectItems['AI_World'].keys():
-            self.metadata['ProjectItems']['AI_World'].append(f"{k}.aworld")
-            ai_word_file[k] = self.ProjectItems['AI_World'][k]
-        ai_perusona = {}
-        self.metadata['ProjectItems']['AI_Perusona'] = []
-        for k in self.ProjectItems['AI_Perusona'].keys():
-            self.metadata['ProjectItems']['AI_Perusona'].append(f"{k}.profile")
-            ai_perusona[k] = self.ProjectItems['AI_Perusona'][k]
-        documents = {}
-        self.metadata['ProjectItems']['documents'] = []
-        for k in self.ProjectItems['documents'].keys():
-            self.metadata['ProjectItems']['documents'].append(f"{k}.doct")
-            documents[k] = self.ProjectItems['documents'][k]
-        data = {}
-        self.metadata['ProjectItems']['data'] = []
-        for k in self.ProjectItems['data'].keys():
-            self.metadata['ProjectItems']['data'].append(f"{k}.data")
-            data[k] = self.ProjectItems['data'][k]
-        timer = {}
-        self.metadata['ProjectItems']['timer'] = []
-        for k in self.ProjectItems['timer'].keys():
-            self.metadata['ProjectItems']['timer'].append(f"{k}.time")
-            timer[k] = self.ProjectItems['timer'][k]
-        return (ai_data_file, ai_word_file, ai_perusona, documents, data, timer)
-    def __save_Project__(self):
-        ai_data_file, ai_world_file, ai_perusona, documents, data, timer = self.__make_file__()
-        print(f"{self.dir}/{self.name}")
-        if os.path.exists(f"{self.dir}/{self.name}") and not (len(self.dir) == 0 or len(self.dir) == 0):
-            with zipfile.ZipFile(f"{self.dir}/{self.name}", 'w', zipfile.ZIP_DEFLATED) as z:
-                z.writestr('METADATA', json.dumps(self.metadata, ensure_ascii=False, indent=4))
-                for name, content in ai_data_file.items():
-                    z.writestr(f"AI_Data/{name}.adata",
-                               json.dumps(content, ensure_ascii=False))
-                for name, content in ai_world_file.items():
-                    z.writestr(f"AI_World/{name}.aworld",
-                               json.dumps(content, ensure_ascii=False))
-                for name, content in ai_perusona.items():
-                    z.writestr(f"AI_Perusona/{name}.profile",
-                               json.dumps(content, ensure_ascii=False))
-                for name, content in documents.items():
-                    z.writestr(f"documents/{name}.doct",
-                               json.dumps(content, ensure_ascii=False))
-                for name, content in data.items():
-                    z.writestr(f"AI_Data/{name}.data",
-                               json.dumps(content, ensure_ascii=False))
-                for name, content in timer.items():
-                    z.writestr(f"AI_Data/{name}.time",
-                               json.dumps(content, ensure_ascii=False))
-        else:
-            if len(self.dir) == 0 and len(self.name) == 0 or not os.path.exists(f"{self.dir}/{self.name}"):
-                with zipfile.ZipFile('./data/.tmp._tmsw_', 'w', zipfile.ZIP_DEFLATED) as z:
-                    z.writestr('METADATA', json.dumps(self.metadata, ensure_ascii=False, indent=4))
-                    for name, content in ai_data_file.items():
-                        z.writestr(f"AI_Data/{name}.adata",
-                            json.dumps(content, ensure_ascii=False))
-                    for name, content in ai_world_file.items():
-                        z.writestr(f"AI_World/{name}.aworld",
-                            json.dumps(content, ensure_ascii=False))
-                    for name, content in ai_perusona.items():
-                        z.writestr(f"AI_Perusona/{name}.profile",
-                            json.dumps(content, ensure_ascii=False))
-                    for name, content in documents.items():
-                        z.writestr(f"documents/{name}.doct",
-                               json.dumps(content, ensure_ascii=False))
-                    for name, content in data.items():
-                        z.writestr(f"AI_Data/{name}.data",
-                            json.dumps(content, ensure_ascii=False))
-                    for name, content in timer.items():
-                        z.writestr(f"AI_Data/{name}.time",
-                           json.dumps(content, ensure_ascii=False))
-            else:
-                return False
-    def __del__(self):
-        print(f"{self.dir}/{self.name}")
-        ai_data_file, ai_world_file, ai_perusona, documents, data, timer = self.__make_file__()
-        if not (0 == len(self.name) and 0 == len(self.dir)) and os.path.exists(self.dir):
-            with zipfile.ZipFile(f"{self.dir}/{self.name}", 'w', zipfile.ZIP_DEFLATED) as z:
-                z.writestr('METADATA', json.dumps(self.metadata, ensure_ascii=False, indent=4))
-                for name, content in ai_data_file.items():
-                    z.writestr(f"AI_Data/{name}.adata",
-                               json.dumps(content, ensure_ascii=False))
-                for name, content in ai_world_file.items():
-                    z.writestr(f"AI_World/{name}.aworld",
-                               json.dumps(content, ensure_ascii=False))
-                for name, content in ai_perusona.items():
-                    z.writestr(f"AI_Perusona/{name}.profile",
-                               json.dumps(content, ensure_ascii=False))
-                for name, content in documents.items():
-                    z.writestr(f"documents/{name}.doct",
-                               json.dumps(content, ensure_ascii=False))
-                for name, content in data.items():
-                    z.writestr(f"AI_Data/{name}.data",
-                               json.dumps(content, ensure_ascii=False))
-                for name, content in timer.items():
-                    z.writestr(f"AI_Data/{name}.time",
-                               json.dumps(content, ensure_ascii=False))
-        else:
-            os.remove(f"./data/.tmp._tmsw_")
+            current_block['name'] = message # AI 답변
 
 """
     모니터의 정보를 가져오는 함수입니다.
@@ -650,64 +487,71 @@ class GlobalWorld:
     # 3 : set self tendency
     # 4 : set self Image
     # 0 : nomar chatting
-    def Call_AI(name:str, input_msg:str, value:int):
-        text = [("system", f"your name is {name}.")]
-        for k in ['age', 'sex', 'personality', 'hobby', 'tendency', 'body']:
-            text.append(("system", f"your {k} is {GlobalWorld.instance().AI_Memory[name][k]}."))
-
+    def Call_AI(name: str, input_msg: str, value: int):
+        # 1. AI 존재 여부 확인
         if name not in GlobalWorld.Get_AI_Names():
             return None
-        elif value == 1:
-            prompt = copy.deepcopy(GlobalWorld.instance().Prompt)
-            for t in text:
-                prompt.append(t)
-            prompt.append(('user', '{input}'))
-            prompt = ChatPromptTemplate.from_messages(prompt)
-            output_parser = StrOutputParser()
-            chain = prompt | GlobalWorld.instance().llm | output_parser
 
-            return chain.invoke({"input":"정의된 네 외모를 특징과 전체 모습을 직접 정의하여 설명하라"})
-        elif value == 2:
-            prompt = copy.deepcopy(GlobalWorld.instance().Prompt)
-            prompt = prompt
-            for t in text:
-                prompt.append(t)
-            prompt.append(('user', '{input}'))
-            prompt = ChatPromptTemplate.from_messages(prompt)
-            output_parser = StrOutputParser()
-            chain = prompt | GlobalWorld.instance().llm | output_parser
-            return chain.invoke({'input' : '정의된 내용을 보고 네 성격을 직접 정의하여 설명하라.'})
-        elif value == 3:
-            prompt = copy.deepcopy(GlobalWorld.instance().Prompt)
-            prompt = prompt
-            for t in text:
-                prompt.append(t)
-            prompt.append(('user', '{input}'))
-            prompt = ChatPromptTemplate.from_messages(prompt)
-            output_parser = StrOutputParser()
-            chain = prompt | GlobalWorld.instance().llm | output_parser
-            return chain.invoke({'input' : '정의된 내용을 보고 네 성향을 직접 정의하여 설명하라.'})
-        elif value == 4:
-            prompt = copy.deepcopy(GlobalWorld.instance().Prompt)
-            prompt = prompt
-            for t in text:
-                prompt.append(t)
-            prompt.append(('user', '{input}'))
-            prompt = ChatPromptTemplate.from_messages(prompt)
-            output_parser = StrOutputParser()
-            chain = prompt | GlobalWorld.instance().llm | output_parser
-            return chain.invoke({'input' : '정의된 네용을 보고 네가 본 네 모습을 직접 정의하여 설명하라.'})
-        
+        # 2. 페르소나(시스템 프롬프트) 구성
+        # 여러 줄의 메시지보다 하나의 잘 정리된 블록이 LLM에게 더 강력하게 작용합니다.
+        ai_data = GlobalWorld.instance().AI_Memory[name]
+        persona_text = f"Your name is {name}.\n"
+    
+        # 설정 키들을 순회하며 설명 추가
+        target_keys = ['age', 'sex', 'personality', 'hobby', 'tendency', 'body']
+        for k in target_keys:
+            if k in ai_data:
+                persona_text += f"Your {k} is {ai_data[k]}.\n"
+            
+        # [중요] 역할 몰입을 위한 강제 지침 추가
+        persona_text += "You must strictly maintain this persona and tone throughout the conversation."
+
+        # 시스템 메시지 생성 (가장 강력한 지침)
+        system_message = ("system", persona_text)
+
+        # 3. 사용자 입력 메시지 결정 (전략 패턴 적용)
+        # value에 따른 질문 템플릿 정의
+        query_map = {
+            1: "정의된 네 외모를 특징과 전체 모습을 직접 정의하여 설명하라",
+            2: "정의된 내용을 보고 네 성격을 직접 정의하여 설명하라.",
+            3: "정의된 내용을 보고 네 성향을 직접 정의하여 설명하라.",
+            4: "정의된 내용을 보고 네가 본 네 모습을 직접 정의하여 설명하라."
+        }
+
+        # input_msg가 있으면 그걸 쓰고, 없으면 value에 매핑된 질문 사용
+        target_query = input_msg if input_msg else query_map.get(value, "")
+
+        if not target_query:
+            return None  # 실행할 쿼리가 없는 경우
+
+       # 4. 프롬프트 리스트 조립 (순서가 매우 중요함)
+        # [순서] 1. 시스템 설정(페르소나) -> 2. 과거 대화 기록(GlobalWorld.Prompt) -> 3. 현재 질문
+        final_messages = [system_message] 
+    
+        # 기존 대화 내역 복사 및 추가 (기존 Prompt에 시스템 설정이 섞여있지 않다고 가정)
+        # 만약 GlobalWorld.Prompt에 이미 system 메시지가 있다면 중복될 수 있으니 주의 필요
+        final_messages.extend(copy.deepcopy(GlobalWorld.instance().Prompt))
+    
+        # 마지막에 사용자 입력 플레이스홀더 추가
+        final_messages.append(('user', '{input}'))
+
+        # 5. LangChain 체인 생성 및 실행
+        prompt_template = ChatPromptTemplate.from_messages(final_messages)
+        output_parser = StrOutputParser()
+        chain = prompt_template | GlobalWorld.instance().llm | output_parser
+
+        # 실행
+        return chain.invoke({'input': target_query})
     # Create_AI_Memory 
     def Create_AI_Memory(name:str):
         if name not in GlobalWorld.instance().AI_Memory.keys():
             GlobalWorld.instance().AI_Memory = {name : {}}
         return GlobalWorld.instance().AI_Memory is not None
     # 기존에 저장된 페르소나를 입력받는 메소드
-    def Create_AI_Perusona(name:str, perusona:dict):
+    def Create_AI_Persona(name:str, Persona:dict):
         key_list = ['age', 'sex', 'personality', 'hobby', 'tendency', 'body', 'self_body', 'self_personality', 'self_tendency', 'self_image']
         for k in key_list:
-            GlobalWorld.instance().AI_Memory[name][k] = perusona[k]
+            GlobalWorld.instance().AI_Memory[name][k] = Persona[k]
         if len(GlobalWorld.instance().AI_Memory[name]['self_body']) == 0:
             return False
         elif len(GlobalWorld.instance().AI_Memory[name]['self_personality']) == 0:
@@ -734,7 +578,7 @@ class GlobalWorld:
     -11 : 열번째 키가 존재하지 않음(self_image)
     -12 : 키에 데이터가 저장되어 있지 않다.
     """
-    def check_perusona(name:str, key:list):
+    def check_Persona(name:str, key:list):
         if name not in GlobalWorld.Get_AI_Names():
             return -1
         code_return = {'age' : -2, 'sex' : -3, 'personality' : -4, 'hobby' : -5, 'tendency' : -6, 'body' : -7, 'self_body' : -8, 'self_personality' : -9, 'self_tendency' : -10, 'self_image' : -11}
@@ -750,46 +594,48 @@ class GlobalWorld:
             else:
                 return -1
         for k in key:
-            if k not in GlobalWorld.Get_AI_Perusona(name).keys():
+            if k not in GlobalWorld.Get_AI_Persona(name).keys():
                 return -1
             else:
-                if checking_type(GlobalWorld.Get_AI_Perusona(name)[k] == 1):
+                if checking_type(GlobalWorld.Get_AI_Persona(name)[k] == 1):
                     continue
-                elif (checking_type(GlobalWorld.Get_AI_Perusona(name)[k]) == 2):
+                elif (checking_type(GlobalWorld.Get_AI_Persona(name)[k]) == 2):
                     if len(checking_type) == 0:
                         return code_return[k]
                     continue
-                elif (checking_type(GlobalWorld.Get_AI_Perusona(name)[k]) == 3):
+                elif (checking_type(GlobalWorld.Get_AI_Persona(name)[k]) == 3):
                     if len(checking_type.keys()) == 0:
                         return code_return[k]
                     continue
-                elif (checking_type(GlobalWorld.Get_AI_Perusona(name)[k]) == 4):
+                elif (checking_type(GlobalWorld.Get_AI_Persona(name)[k]) == 4):
                     if len(checking_type) == 0:
                         return code_return[k]
                     continue
-                elif checking_type(GlobalWorld.Get_AI_Perusona(name)[k] == -1):
+                elif checking_type(GlobalWorld.Get_AI_Persona(name)[k] == -1):
                     return -12
                 else:
                     continue
         return True
     # Self_body, 즉 AI가 대화를 통해 정의한 자신의 외형을 설정하는 메소드
-    def Set_AI_Perusona_Self_body(name:str, data:str):
+    def Set_AI_Persona_Self_body(name:str, data:str):
         GlobalWorld.instance().AI_Memory[name]['self_body'] = data
     # Self_personality, 즉 AI가 대화를 통해 정의한 자신의 성격을 설정하는 메소드
-    def Set_AI_Perusona_Self_Personality(name:str, data:str):
+    def Set_AI_Persona_Self_Personality(name:str, data:str):
         GlobalWorld.instance().AI_Memory[name]['self_personality'] = data
     # Self_Tendency, 즉 AI가 대화를 통해 정의한 자신의 성향을 설정하는 메소드
-    def Set_AI_Perusona_Self_Tendency(name:str, data:str):
+    def Set_AI_Persona_Self_Tendency(name:str, data:str):
         GlobalWorld.instance().AI_Memory[name]['self_tendency'] = data
     # Self_Image, 즉 AI가 대화를 통해 정의한 자신의 이미지를 설정하는 메소드
-    def Set_AI_Perusona_Self_Image(name:str, data:str):
+    def Set_AI_Persona_Self_Image(name:str, data:str):
         GlobalWorld.instance().AI_Memory[name]['self_image'] = data
-    # AI Perusona를 반환하는 메소드.
-    def Get_AI_Perusona(name:str):
+    # AI Persona를 반환하는 메소드.
+    def Get_AI_Persona(name:str):
         return GlobalWorld.instance().AI_Memory[name]
-    # 실행중인 AI Perusona의 정보의 key를 받아오는 메소드
+    # 실행중인 AI Persona의 정보의 key를 받아오는 메소드
     def Get_AI_Names():
         return GlobalWorld.instance().AI_Memory.keys()
+    def Get_last_talk():
+        return GlobalWorld.instance().Prompt[-1]
     # 생성자
     def __init__(self):
         self.AI_Memory = {}

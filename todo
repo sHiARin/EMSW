@@ -316,3 +316,32 @@ Character 기능 중 '캐릭터 불러오기' 는 Image Character 내보내기�
 -> 대화 기능을 통해 완성된 AI의 성향은 내부적으로 처리되며, 그 결과는 AI Profile에 남는다.
 -> 해당 기록은 log data로 ai data에 남는다.
 -> ai data 중 log data는 ai data의 로그로 접근하여 확인할 수 있으며, 블랙박스가 기본이지만, AI의 판단 준거는 기록되도록 남긴다.
+
+
+기능 설정
+
+Perusona 관련 설정 기능
+
+최초 설정 시, Perusona와의 대화를 통해 설정할 수 있게 한다.
+이를 위해 Chatting View를 커스텀한 EchoSetup에서 호출한다.
+
+Perusona 설정 명령어
+
+
+show > AI의 정보를 보여준다.
+set > AI의 정보를 설정한다.
+exit > AI 정보 편집을 마치고, 해당 설정을 빠져나간다.
+help > AI의 기능에 대한 설명을 본다.
+
+show name > 현재 설정중인 AI의 이름을 본다.
+show 'key' > 키 또는 키에 매칭된 단어를 입력하면, 매칭된 정보를 알 수 있다.
+show perusona > 설정이 완료된 AI의 정보를 본다.
+set Body or Set 외형 > AI가 스스로 생각하는 외형을 정의한다.
+set Personality or Set 성격 > AI가 스스로 생각하는 성격을 정의한다.
+set Tendency or Set 성향 > AI가 스스로 생각하는 성향을 정의한다.
+set self_body : 자기외모
+set self_tendency : 쟈기성향
+set self_personality : 자기성격
+set Self Image or Set 자아 > (통상적인 자아와는 반대로, AI가 위 항목들을 통틀어서 생각한 '자신 스스로가 생각하는' 이 캐릭터의 모습을 정의한다.)
+
+help > 위 '질문'을 모두 인식할 수 있도록 커맨드의 설명을 확인한다.
