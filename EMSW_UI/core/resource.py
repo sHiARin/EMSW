@@ -69,7 +69,7 @@ class ProjectConfig:
                 'hobby_data_type': 'str', 'personality_data_type': "str", 'tendency_data_type': "str", 'body_data_type': "str",
             }
         },
-        'documents': {'sample': {'title': {}, 'index': {}, 'text': {}, 'range':0}},
+        'documents': {'sample': {'title': {0 : 'contents'}, 'index' : {'contents' : 0}, 'text': {0 : 'contents'}, 'range':0}},
         'data': {'sample': {'type': 'content'}},
         'timer': {'sample': {'input_time': 0, 'focus_time': 0, 'active_time': 0}},
         'wiki': {"sample": {"index": [], "bodies": []}}
@@ -189,12 +189,13 @@ class ProjectConfig:
     # 문서 파일을 추가했을 때 문서 파일의 데이터를 추가하면서 수행할 작업
     def open_document_files(self, name:str, title:str, text:str):
         file = copy.deepcopy(self.DEFAULT_PROJECT_ITEMS['documents']['sample'])
-        file['tilte'] = {title : 1}
-        file['index'] = {1 : title}
-        file['text'] = {1 : text}
-        file['range'] += 1
+        file['title'][1] = title.split('.')[0]
+        file['index'][title] = 1
+        file['text'][1] = text
+        file['range'] = 1
         self.project_items['documents'][name] = file
         
+        print(self.project_items['documents'])
         # 자동 저장.
         self.save_project()
 
@@ -280,12 +281,13 @@ class ProjectConfig:
     def set_Persona_editing_windows_geometry(self, x, y, w, h):
         self.metadata['ProgrameData']['Persona_editing_windows'].update(zip(['x', 'y', 'w', 'h'], [x, y, w, h]))
     
-    def update_document_title(self, name, title:str, range:int):
-        self.project_items['documents'][name]['title'][title] = range
-    
-    def update_index(self, name, title:str):
-        l = len(self.project_items['documents'][name]['index'].keys())
-        self.project_items['documents'][name]['index'][l] = title
+    # --- document data update ---
+
+    def update_document(self, name, title:str, range:int, text:str):
+        self.project_items['documents'][name]['title'][range + 1] = title
+        self.project_items['documents'][name]['range'] += 1
+        self.project_items['documents'][name]['index']['title'] = range + 1
+        self.project_items['documents'][name]['text'][range + 1] = text
 
     # --- Persona Access ---
     def get_persona_dict(self):
@@ -330,13 +332,20 @@ class ProjectConfig:
     def getPersonaEditing_WindowData(self): return self.metadata['ProgrameData']['Persona_editing_windows']
 
     # --- documents Getters ---
-
+    # name에 있는 모든 title, 모든 text, range를 반환
     def get_documents_name(self): return [item for item in self.project_items['documents'].keys() if 'sample' not in item]
     def get_documents_title(self, name:str): return self.project_items['documents'][name]['title']
-    def get_documents_index(self, name:str): return self.project_items['documents'][name]['index']
     def get_documents_text(self, name:str): return self.project_items['documents'][name]['text']
     def get_documents_range(self, name:str): return self.project_items['documents'][name]['range']
 
+    # name에 key 값에 맞는 value를 반환
+    def get_document_title(self, name:str, i:int):
+        return self.project_items['documents'][name]['title'][i]
+    def get_document_text(self, name:str, i:int):
+        return self.project_items['documents'][name]['text'][i]
+    def get_document_index(self, name:str, title:str):
+        return self.project_items['documents'][name]['index'][title]
+    
     # --- loader GlobalWorld ---
 
     def load_global(self):

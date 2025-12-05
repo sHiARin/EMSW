@@ -2,6 +2,9 @@
 
 *test*
 
+# 숨김파일 무시
+.*
+
 # 프로젝트 루트에 있는 dll과 exp, obj 무시
 /*.exp
 /*.lib
@@ -9,6 +12,7 @@
 
 # .vscode 이하의 파일 무시
 .vscode
+
 
 # json 파일 무시
 .json

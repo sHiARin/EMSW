@@ -173,6 +173,8 @@ class ProgrameAction(Enum):
     CreateNewAIChatting = 0xfff052
     # AI에게 메시지를 보냈습니다.
     SendMessageSuccess = 0xfff053
+    # Documents가 열렸습니다.
+    DocumentsOpen = 0xfff054
 
 EVENT_MAPPING = {
     ProgrameAction.ProgrameStart: "ProgrameAction",
