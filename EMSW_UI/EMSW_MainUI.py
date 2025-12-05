@@ -14,10 +14,15 @@ from PySide6.QtCore import (Qt, Signal, QTimer,
                             QModelIndex, QObject, QThread,
                             Slot, QThread)
 from shiboken6 import isValid
+from helper_hwp import hwp_to_txt
 from Config.config import ProgrameAction, ProgrameEventChecker
 from EMSW_UI.core.resource import ProjectConfig, Display, GlobalSignalHub, GlobalWorld
 
 import os, copy
+
+###
+#    프로그램의 메인 뷰
+###
 
 class EMSW(QMainWindow):
     def __init__(self, project: ProjectConfig):
@@ -25,6 +30,7 @@ class EMSW(QMainWindow):
         self.project = project
         self.project_open = False
         self.dir = None
+        self.documentOpened = False
         
         # 시그널 허브 설정
         self.hub = GlobalSignalHub.instance()
@@ -145,7 +151,8 @@ class EMSW(QMainWindow):
         self._add_action(menu, "프로젝트 만들기", self._new_project)
         self._add_action(menu, "프로젝트 열기", self._open_project)
         menu.addSeparator()
-
+        document_group_menu = menu.addMenu("문서")
+        self._add_action(document_group_menu, "HWP", self._open_hwp)
     def _setup_character_menu(self, menu):
         self._add_action(menu, "새 캐릭터", self._create_persona)
         self._add_action(menu, "캐릭터 편집하기", self._edit_persona)
@@ -191,6 +198,35 @@ class EMSW(QMainWindow):
 
     def _show_json_file_error(self):
         QMessageBox.warning(self, '오류', '설정 파일(JSON)에 오류가 발생했습니다.')
+    
+    def _open_hwp(self):
+        file_path, ok = QFileDialog.getOpenFileName(self, "hwp 파일 열기", "", "HWP File(*.hwp)")
+        title = file_path.split('/')[-1]
+        text = hwp_to_txt(file_path)
+        if '.hwp' not in file_path:
+            self.documentOpened = False
+            QMessageBox.critical(self, "경고", "파일 형식이 다릅니다.", QMessageBox.StandardButton.Ok)
+            return False
+        elif not ok:
+            QMessageBox.information(self, "알림", "파일 열기를 취소하셨습니다.")
+        else:
+            replay = QMessageBox.information(self, "로드", "새 그룹을 생성하시겠습니까?", QMessageBox.StandardButton.Ok, QMessageBox.StandardButton.Cancel)
+            if replay is QMessageBox.StandardButton.Ok:
+                name, ok = QInputDialog.getText(self, "새 그룹", "새 그룹")
+                if not ok: return False
+                if name not in self.project.get_documents_name():
+                    self.project.open_document_files(name, title, text)
+            else:
+                name_list = len(self.project.get_documents_name())
+                if name_list == 1:
+                    QMessageBox.information(self, "알림", "그룹이 없습니다.", QMessageBox.StandardButton.Ok)
+                    return False
+                else:
+                    name, ok = QInputDialog.getItem(self, '그룹 선택', '그룹 명', self.project.get_documents_name())
+                    if ok:
+                        if name in self.project.get_documents_name():
+                            self.project.update_document_title(self, name, title, self.project.get_documents_range(name))
+            print(self.project.get_documents_text(name))
 
     # =========================================================================
     # 캐릭터 생성 로직
@@ -345,8 +381,11 @@ class EMSW(QMainWindow):
             pass
         super().closeEvent(event)
 
-# ollama와 연결된 AI Chatting Widget
+class DocumentView(QWidget):
+    def __init__(self, project:ProjectConfig):
+        pass        
 
+# ollama와 연결된 AI Chatting Widget
 class MainChattingView(QWidget):
     name_trigger = Signal(str)
     name = Signal(str)

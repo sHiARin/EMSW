@@ -69,7 +69,7 @@ class ProjectConfig:
                 'hobby_data_type': 'str', 'personality_data_type': "str", 'tendency_data_type': "str", 'body_data_type': "str",
             }
         },
-        'documents': {'sample': {'title': 'content', 'index': 'content', 'text': 'content'}},
+        'documents': {'sample': {'title': {}, 'index': {}, 'text': {}, 'range':0}},
         'data': {'sample': {'type': 'content'}},
         'timer': {'sample': {'input_time': 0, 'focus_time': 0, 'active_time': 0}},
         'wiki': {"sample": {"index": [], "bodies": []}}
@@ -102,7 +102,7 @@ class ProjectConfig:
             self.open_project(str(path.parent), path.name)
         else:
             # 임시 파일 생성
-            self._save_to_zip('./data/.tmp._tmsw_')
+            self._save_to_file('./data/.tmp._tmsw_')
 
     # =========================================================================
     # File I/O (Core)
@@ -186,6 +186,18 @@ class ProjectConfig:
         except Exception as e:
             print(f"Failed to open project: {e}")
 
+    # 문서 파일을 추가했을 때 문서 파일의 데이터를 추가하면서 수행할 작업
+    def open_document_files(self, name:str, title:str, text:str):
+        file = copy.deepcopy(self.DEFAULT_PROJECT_ITEMS['documents']['sample'])
+        file['tilte'] = {title : 1}
+        file['index'] = {1 : title}
+        file['text'] = {1 : text}
+        file['range'] += 1
+        self.project_items['documents'][name] = file
+        
+        # 자동 저장.
+        self.save_project()
+
     def save_project(self):
         """현재 상태를 파일로 저장"""
         if not self.project_dir or not self.project_name:
@@ -193,11 +205,11 @@ class ProjectConfig:
         else:
             target_path = self.project_dir / self.project_name
         
-        self._save_to_zip(target_path)
+        self._save_to_file(target_path)
         print(f"Saved to: {target_path}")
 
-    def _save_to_zip(self, path):
-        """실제 Zip 파일 쓰기 로직 (중복 제거됨)"""
+    def _save_to_file(self, path):
+        """file 파일 쓰기 로직 (중복 제거됨)"""
         # 확장자 매핑
         ext_map = {
             'AI_Data': '.adata', 'AI_World': '.aworld', 'AI_Persona': '.profile',
@@ -267,6 +279,14 @@ class ProjectConfig:
     
     def set_Persona_editing_windows_geometry(self, x, y, w, h):
         self.metadata['ProgrameData']['Persona_editing_windows'].update(zip(['x', 'y', 'w', 'h'], [x, y, w, h]))
+    
+    def update_document_title(self, name, title:str, range:int):
+        self.project_items['documents'][name]['title'][title] = range
+    
+    def update_index(self, name, title:str):
+        l = len(self.project_items['documents'][name]['index'].keys())
+        self.project_items['documents'][name]['index'][l] = title
+
     # --- Persona Access ---
     def get_persona_dict(self):
         return self.project_items['AI_Persona']
@@ -308,6 +328,14 @@ class ProjectConfig:
     def getSelfImage(self, name): return self.project_items['AI_Persona'][name].get('self_image', [])
     
     def getPersonaEditing_WindowData(self): return self.metadata['ProgrameData']['Persona_editing_windows']
+
+    # --- documents Getters ---
+
+    def get_documents_name(self): return [item for item in self.project_items['documents'].keys() if 'sample' not in item]
+    def get_documents_title(self, name:str): return self.project_items['documents'][name]['title']
+    def get_documents_index(self, name:str): return self.project_items['documents'][name]['index']
+    def get_documents_text(self, name:str): return self.project_items['documents'][name]['text']
+    def get_documents_range(self, name:str): return self.project_items['documents'][name]['range']
 
     # --- loader GlobalWorld ---
 
