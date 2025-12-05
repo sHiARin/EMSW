@@ -4,7 +4,8 @@ from PySide6.QtWidgets import (QMainWindow, QWidget, QFileDialog,
                                QDialog, QAbstractItemView, QMenu,
                                QScrollArea, QCheckBox, QInputDialog,
                                QTableWidget, QFrame, QHeaderView,
-                               QTableWidgetItem, QListWidget)
+                               QTableWidgetItem, QListWidget,
+                               QSplitter)
 from PySide6.QtGui import (QKeyEvent, QAction, QStandardItemModel,
                            QStandardItem, QPalette, QColor,
                            QGuiApplication, QFont, QTextItem, 
@@ -38,7 +39,7 @@ class EMSW(QMainWindow):
             ProgrameAction.MakeUI: self._run_program,
             ProgrameAction.CreateAIPersona: self._create_persona,
             ProgrameAction.OpenProjectSuccess: self._on_project_opened,
-            ProgrameAction.SuccessBaigicSetupAIPersona: self._setup_self_image,
+            ProgrameAction.SuccessBaigicSetupAIPersona: self._setup_self_image
         }
 
         self.error_map = {
@@ -72,14 +73,22 @@ class EMSW(QMainWindow):
             self.error_map[signal]()
 
     def _get_activate_window_position(self):
-        # 디스플레이 정보를 가져오는 로직 (외부 클래스 의존)
-        # self.__display__ = Display() 
+        self._display_ = Display() 
         self.hub.programe_signal.emit(ProgrameAction.SetWindowPosition)
 
     def _fix_monitor_position(self):
         """창이 모니터 화면 밖으로 나갔는지 확인하고 보정"""
-        # (기존 로직 유지하되 간소화 가능)
-        # ... 보정 로직 ...
+        over_monitor = False
+        x, y = zip([self.x(), self.y()])
+        for dis in self._display_:
+            x1, x2 = zip([dis['geometry']['x'], dis['geometry']['x'] + dis['geometry']['width']])
+            y1, y2 = zip([dis['geometry']['y'], dis['geometry']['y'] + dis['geometry']['height']])
+            if x1 < x and x < x2 and y1 < y and y < y2:
+                over_monitor = False
+            else:
+                over_monitor = True
+        if over_monitor:
+            self.move(100, 100)
         self.hub.programe_signal.emit(ProgrameAction.FixedWindowPosition)
 
     def _finish_initialization(self):
@@ -93,14 +102,24 @@ class EMSW(QMainWindow):
             data['windows_pos']['x'], data['windows_pos']['y'],
             data['windows_scale']['width'], data['windows_scale']['height']
         )
-        
+        # _init_ui()에 삽입될 view data 설정
+        self._horizontal_spliter = QSplitter()
+        self._horizontal_spliter.setOrientation(Qt.Orientation.Horizontal)
+        self._vertical_spliter = QSplitter()
+        self._vertical_spliter.setOrientation(Qt.Orientation.Vertical)
         self._create_menus()
         self._init_ui()
 
     def _init_ui(self):
         """메인 위젯 설정"""
+        if self.centralWidget():
+            self.centralWidget().setParent(None)
+
         mainboard = QWidget()
-        mainboard.setLayout(QHBoxLayout()) # 메인 레이아웃
+        hBoxLayout = QVBoxLayout()
+        hBoxLayout.addWidget(self._horizontal_spliter)
+        hBoxLayout.addWidget(self._vertical_spliter)
+        mainboard.setLayout(hBoxLayout) # 메인 레이아웃
         self.setCentralWidget(mainboard)
         self.show()
 
@@ -126,16 +145,13 @@ class EMSW(QMainWindow):
         self._add_action(menu, "프로젝트 만들기", self._new_project)
         self._add_action(menu, "프로젝트 열기", self._open_project)
         menu.addSeparator()
-        # 추가 메뉴들...
 
     def _setup_character_menu(self, menu):
         self._add_action(menu, "새 캐릭터", self._create_persona)
-        self._add_action(menu, "캐릭터 불러오기", self._load_persona)
-        self._add_action(menu, "캐릭터 편집하기", self._delete_persona)
-        # ...
+        self._add_action(menu, "캐릭터 편집하기", self._edit_persona)
 
     def _setup_view_menu(self, menu):
-        self._add_action(menu, "AI 챗 뷰 추가", lambda: print("Chat View Added"))
+        self._add_action(menu, "AI 챗 뷰 추가", self._add_chatting_view)
 
     # =========================================================================
     # 프로젝트 및 파일 관리
@@ -161,18 +177,15 @@ class EMSW(QMainWindow):
         self.project_open = True
         
         # 윈도우 제목을 현재 열린 프로젝트 이름으로 변경
-        # 리팩토링된 ProjectConfig를 사용 중이라면 .project_name
-        # (만약 이전 버전을 사용 중이라면 .name 으로 변경하세요)
         if hasattr(self.project, 'project_name'):
             self.setWindowTitle(f"{self.project.project_name} - EMSW")
-        else:
-            self.setWindowTitle(f"{self.project.name} - EMSW")
-
-        # (선택 사항) 저장된 창 위치와 크기로 복원
+        # 저장된 창 위치와 크기로 복원
         x, y = self.project.get_position()
         w, h = self.project.get_scale()
         self.setGeometry(x, y, w, h)
 
+        # global에서 호출하는 Chatview에 쓰일 패르소나를 업데이트
+        self.project.load_global()
     def _handle_message(self, message):
         self.dir = message
 
@@ -188,10 +201,10 @@ class EMSW(QMainWindow):
         
         if self._process_profile_creation():
             print('프로파일 설정 완료')
-            self.hub.programe_signal.emit(ProgrameAction.SuccessBaigicSetupAIpersona)
+            self.hub.programe_signal.emit(ProgrameAction.SuccessBaigicSetupAIPersona)
         else:
             QMessageBox.information(self, "생성 취소", "캐릭터 생성을 취소하였습니다.")
-            self.hub.programe_signal.emit(ProgrameAction.CancleCreateAIpersona)
+            self.hub.programe_signal.emit(ProgrameAction.CancleCreateAIPersona)
 
     def _process_profile_creation(self):
         """
@@ -204,44 +217,44 @@ class EMSW(QMainWindow):
         if len(name) <= 2 or self.project.search_persona_name(name):
             QMessageBox.warning(self, "오류", "이름이 너무 짧거나 이미 존재합니다.")
             return False
-        self.project.updatepersonaName(name)
+        self.project.update_persona_Name(name)
 
         # 2. 나이
         age, ok = QInputDialog.getInt(self, '나이 입력', '나이를 입력해 주세요:', 0)
         if not ok: return False
-        self.project.updatepersonaAge(name, age)
+        self.project._update_persona_field(name, 'age', age)
 
         # 3. 성별
         sex, ok = QInputDialog.getItem(self, '성별 선택', '성별을 선택해 주세요:', ['남자', '여자'], 0, False)
         if not ok: return False
-        self.project.updatepersonaSex(name, sex)
+        self.project._update_persona_field(name, 'sex', sex)
 
         # 4. 취미 (파싱 로직 사용)
         hobby_str, ok = QInputDialog.getText(self, '취미 입력', '취미를 입력해 주세요 (, 구분):')
         if not ok: return False
         hobby_data, type_str = self._parse_input_string(hobby_str)
         if not hobby_data: 
-            self.project.updatepersonaHobby(name, '취미가 없습니다.', 'str')
+            self.project._update_persona_field(name, '취미가 없습니다.', 'str')
         else:
-            self.project.updatepersonaHobby(name, hobby_data, type_str)
+            self.project._update_persona_field(name, 'hobby', hobby_data, type_str)
 
         # 5. 성격
         pers_str, ok = QInputDialog.getText(self, '성격 입력', '성격을 입력해 주세요 (필수):')
         if not ok or not pers_str: return False
         pers_data, type_str = self._parse_input_string(pers_str)
-        self.project.updatepersonaPersonality(name, pers_data, type_str)
+        self.project._update_persona_field(name, 'personality', pers_data, type_str)
 
         # 6. 성향
         tend_str, ok = QInputDialog.getText(self, '성향 입력', '성향을 입력해 주세요 (필수):')
         if not ok or not tend_str: return False
         tend_data, type_str = self._parse_input_string(tend_str)
-        self.project.updatepersonaTendency(name, tend_data, type_str)
+        self.project._update_persona_field(name, 'tendency', tend_data, type_str)
 
         # 7. 신체 묘사
-        body_str, ok = QInputDialog.getText(self, '신체 묘사', '신체를 묘사해 주세요:')
+        body_str, ok = QInputDialog.getText(self, 'body', '신체 묘사', '신체를 묘사해 주세요:')
         if not ok: return False
         body_data, type_str = self._parse_input_string(body_str)
-        self.project.updatepersonaBody(name, body_data, type_str)
+        self.project._update_persona_field(name, 'body', body_data, type_str)
 
         # 저장
         self.project.save_project()
@@ -275,23 +288,151 @@ class EMSW(QMainWindow):
 
     def _setup_self_image(self):
         print('Setup Self Image...')
+    def _edit_persona(self):
+        self.edit_view = PersonaSettingWindow(self, self.project)
+        self.edit_view.show()
+    
+    # =========================================================================
+    # 뷰 생성 로직
+    # =========================================================================
+    def _add_chatting_view(self):
+        if not self._persona_key_check():
+            return False
+        self.append_chatting_view()
+    def _persona_key_check(self):
+        personalist = []
+        names = GlobalWorld().get_ai_names()
+        if len(names) == 0:
+            replay = QMessageBox.information(self, '알림', '생성된 캐릭터가 없습니다. \n 캐릭터를 생성하시겠습니까?', QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel)
+            if replay == QMessageBox.StandardButton.Ok:
+                if hasattr(self, '_create_persona'):
+                    self._create_persona()
+                return False
+            else:
+                return False
+        required_keys = GlobalWorld.PERSONA_KEYS if hasattr(GlobalWorld, 'PERSONA_KEYS') else [
+            'age', 'sex', 'personality', 'hobby', 'tendency', 'body', 
+            'self_body', 'self_personality', 'self_tendency', 'self_image'
+        ]
+        for n in names:
+            if GlobalWorld().check_persona_integrity(n, required_keys) < 0:
+                pass
+            else:
+                personalist.append(n)
+        if (personalist) == 0:
+            QMessageBox.information(self, '알림', '유효한 캐릭터가 없습니다.\n 캐릭터는 생성한 뒤, self attention을 위해 self attention 과정을 거쳐야 합니다.')
+            return False
+        self._persona_list = personalist
+        return True
+    
+    def append_chatting_view(self):
+        print(1)
+        main_chat_layout = MainChattingView(self.project)
+        main_chat_layout.setNames(self.project.get_persona_names())
+        current_size = self._vertical_spliter.sizes()
+        new_size = sum(current_size) // (len(current_size) + 1) if current_size else 300
+        self._vertical_spliter.addWidget(main_chat_layout)
+        self._vertical_spliter.setSizes([new_size] * self._vertical_spliter.count())
+        self.update()
+    """
+        close event 오버라이드
+        최종 체크 (자동 저장)
+    """
+    def closeEvent(self, event):
+        try:
+            self.project.save_project()
+        except:
+            pass
+        super().closeEvent(event)
 
-    def _load_persona(self):
-        print('Load Persona...')
+# ollama와 연결된 AI Chatting Widget
 
-    def _delete_persona(self):
-        self.delete_view = PersonaSettingWindow(self.project)
-        self.delete_view.show()
-class PersonaSettingWindow(QWidget):
-    def __init__(self, project):
+class MainChattingView(QWidget):
+    name_trigger = Signal(str)
+    name = Signal(str)
+    def __init__(self, project:ProgrameAction):
         super().__init__()
         self.project = project
+        self._names = self.project.get_persona_names()
+        self.__init_ollama_chat()
+        self.__init_ui__()
+    def setNames(self, names:list):
+        self._names = names
+    def names(self):
+        return self._names
+    def __init_ollama_chat(self):
+        """AI 통신 스레드 및 컨트롤러 초기화"""
+        self.chat_thread = QThread(self)
+        self.chatController = ChatController(self)
+        self.chatController.moveToThread(self.chat_thread)
+    def __init_ui__(self):
+        main_layout = QHBoxLayout(self)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)
+
+        # === 왼쪽 : make character List ===
+        self.thread_list = QListWidget()
+        self.thread_list.setFixedWidth(250)
+
+        self.thread_list.setStyleSheet("""
+            QListWidget {
+                border-right: 1px solid #cccccc;
+                background: #f5f5f5;
+            }
+        """)
         
+        for n in self._names:
+            self.thread_list.addItem(n)
+        
+        self.thread_list.setStyleSheet("""
+            QListWidget {
+                border-right: 1px solid #cccccc;
+                background: #f5f5f5;
+            }
+        """)
+        
+        # --- 오른쪽 : 채팅 영역
+
+        right_panel = QWidget()
+        right_layout = QVBoxLayout(right_panel)
+        right_layout.setContentsMargins(0, 0, 0, 0)
+        right_layout.setSpacing(0)
+
+        # --- 채팅 패널
+        self.chatpanel = ChattingView(self, 0)
+        self.chatpanel.set_name('')
+        self.chatpanel.setWindowTitle('')
+        right_layout.addWidget(self.chatpanel)
+
+        # --- click event 추가
+        self.thread_list.currentItemChanged.connect(self.on_character_clicked_trigger)
+
+        main_layout.addWidget(self.thread_list)
+        main_layout.addWidget(right_panel)
+
+        self.setLayout(main_layout)
+    def on_character_clicked_trigger(self, current, previous):
+        if current:
+            self.chatpanel.set_name(current.text())
+
+# persona의 세부 사항을 설정하고 편집하는 동작을 담당하는 위젯
+class PersonaSettingWindow(QWidget):
+    def __init__(self, parent, project):
+        super().__init__()
+        self.edit_cell = False
+        self.edit_list = []
+        self.clickedNum = 0
+        self.project = project
+        self.parents = parent
+        
+        # 테이블 키 설정
+        self.persona_keys = ['name', 'age', 'sex', 'hobby', 'personality', 'tendency', 'body', 'self_body', 'self_personality', 'self_tendency', 'self_image']
+
         # 윈도우 초기 설정
-        window_data = self.project.getPerusonaEditing_windowData()
+        window_data = self.project.getPersonaEditing_WindowData()
         self.move(window_data.get('x', 100), window_data.get('y', 100))
         self.resize(window_data.get('w', 800), window_data.get('h', 600))
-        self.setWindowTitle("페르소나 관리")
+        self.setWindowTitle("캐릭터 관리")
         self.setStyleSheet("background: #F0F2F5")
 
         # UI 및 데이터 로드
@@ -332,15 +473,21 @@ class PersonaSettingWindow(QWidget):
         self._apply_btn_style(refresh_btn, "#FEE500", "#333")
         refresh_btn.clicked.connect(self.load_table_data)
 
+        self.edit_btn = QPushButton("편집")
+        self.edit_btn.setFixedSize(60, 30)
+        self._apply_btn_style(self.edit_btn, "#00E0F0", "#333")
+        self.edit_btn.clicked.connect(self.edit_button)
+
         top_layout.addWidget(title_label)
         top_layout.addStretch()
         top_layout.addWidget(self.search_input)
         top_layout.addWidget(search_btn)
+        top_layout.addWidget(self.edit_btn)
         top_layout.addWidget(refresh_btn)
         main_layout.addWidget(top_frame)
 
         # 2. 테이블 위젯 설정
-        self.columns = ['이름', '나이', '성별', '취미', '성격', '성향', '외모', '자아', '설정']
+        self.columns = ['이름', '나이', '성별', '취미', '성격', '성향', '외모', '설정']
         self.table = QTableWidget()
         self.table.setColumnCount(len(self.columns))
         self.table.setHorizontalHeaderLabels(self.columns)
@@ -377,6 +524,42 @@ class PersonaSettingWindow(QWidget):
         status_layout.addWidget(close_btn)
         main_layout.addLayout(status_layout)
 
+    def edit_button(self):
+        self.edit_cell = not self.edit_cell
+        if self.edit_cell:
+            self.edit_btn.setText('저장')
+            self.table.setEditTriggers(QAbstractItemView.EditTrigger.SelectedClicked)
+            self.table.itemClicked.connect(self._handle_dobule_clicked_)
+        else:
+            self.edit_btn.setText('편집')
+            # 편집 모드 종료
+            # 트리거 연결 해제, 오류 우회를 위한 except pass
+            self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+            try:
+                self.table.itemClicked.disconnect(self._handle_clicked_)
+            except:
+                pass
+            for item in self.edit_list:
+                name = self.table.item(item.row(), 0).text()
+                content = item.text()
+                if item.column() == 0:
+                    pass
+                elif item.column() < 3:
+                    self.project._update_persona_field(name, self.persona_keys[item.column()], content)
+                    self.project.save_project()
+                else:
+                    content, type_str = self.parents._parse_input_string(content)
+                    self.project._update_persona_field(name, self.persona_keys[item.column()], content, type_str)
+                    self.project.save_project()
+
+    def _handle_dobule_clicked_(self, item):
+        self.clickedNum += 1
+        self.edit_list.append(item)
+        is_save_mode = (self.edit_btn.text() == '저장')
+        if not is_save_mode:
+            self.table.setItem(item.row(), item.column(), item)
+            self.clickedNum = 0
+
     def load_table_data(self):
         """데이터를 불러와 테이블을 채웁니다."""
         self.table.setRowCount(0) # 초기화
@@ -390,7 +573,7 @@ class PersonaSettingWindow(QWidget):
             self.table.insertRow(row_idx)
 
             # 데이터 포맷팅 및 셀 생성
-            # 컬럼 순서: 이름, 나이, 성별, 취미, 성격, 성향, 외모, 자아
+            # 컬럼 순서: 이름, 나이, 성별, 취미, 성격, 성향, 외모
             cell_values = [
                 name,
                 str(data.get('age', '')),
@@ -398,14 +581,14 @@ class PersonaSettingWindow(QWidget):
                 self._format_value(data.get('hobby'), '취미가 없습니다.'),
                 self._format_value(data.get('personality')),
                 self._format_value(data.get('tendency')),
-                self._format_value(data.get('body')),
-                self._format_value(data.get('self_image', '')) # '자아' 필드가 있다고 가정
+                self._format_value(data.get('body'))
             ]
 
             # 텍스트 셀 추가
             for col_idx, value in enumerate(cell_values):
                 item = QTableWidgetItem(value)
                 item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+                item.setSelected(False)
                 self.table.setItem(row_idx, col_idx, item)
 
             # 마지막 컬럼: 설정 버튼
@@ -453,15 +636,26 @@ class PersonaSettingWindow(QWidget):
         # self.egosetup.show() # EgoSettup 내부에서 show()를 호출하지 않는다면 여기서 호출
 
     def _adjust_column_sizes(self):
-        """컬럼 크기 자동 조정"""
-        header = self.table.horizontalHeader()
-        
-        # 내용에 맞게 조정하되, 일부 컬럼은 고정하거나 늘림
-        header.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
-        
-        # 예: 성격, 성향 등 내용이 많은 컬럼은 Stretch로 설정하여 빈 공간 채우기
-        header.setSectionResizeMode(4, QHeaderView.ResizeMode.Stretch) # 성격
-        header.setSectionResizeMode(5, QHeaderView.ResizeMode.Stretch) # 성향
+        """테이블의 행/열 크기를 내용에 맞게 조정합니다."""
+    
+        # 열 너비(Width)를 내용에 맞게 자동 조정
+        self.table.resizeColumnsToContents()
+    
+        # 행 높이(Height)를 내용(개행 포함)에 맞게 자동 조정
+        self.table.resizeRowsToContents()
+
+        # 행 높이를 내용에 맞게 '고정' (사용자가 마우스로 조절 불가능하게)
+        # 내용이 바뀌면 자동으로 늘어나고 줄어듦
+        vertical_header = self.table.verticalHeader()
+        vertical_header.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
+
+        # 특정 항목은 최대 길이를 막어 무한정 불어나는 것을 막습니다.
+        self.table.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeMode.Interactive)
+        self.table.setColumnWidth(4, 300)
+
+        # 마지막 항목은 btn의 너비(60) 보다 여유있게 설정하여 잘리는 것을 방지하고, Table의 길이를 수정할 수 없도록 변경.
+        self.table.setColumnWidth(len(self.columns) - 1, 80)
+        self.table.EditTrigger(QAbstractItemView.EditTrigger.NoEditTriggers)
 
     def filter_table(self, text):
         """검색어에 따라 테이블 행 숨기기/보이기"""
@@ -480,6 +674,9 @@ class PersonaSettingWindow(QWidget):
             }}
             QPushButton:hover {{ opacity: 0.8; }}
         """)
+    def closeEvent(self, event):
+        self.project.set_Persona_editing_windows_geometry(self.x(), self.y(), self.width(), self.height())
+        return super().closeEvent(event)
 
 class ChatController(QObject):
     ai_message = Signal(str)
@@ -503,12 +700,12 @@ class Ollama_Connector(QWidget):
     answer_ready = Signal(str)
 
     def generate(self, name:str, text:str, type:int):
-        GlobalWorld.make_prompt_data()
-        GlobalWorld.getllm('gpt-oss:20b', 0.7)
+        GlobalWorld().init_prompt_data()
+        GlobalWorld().get_llm('gpt-oss:20b', 0.7)
         if 0 < len(text):
-            b = GlobalWorld.Get_last_talk()
-            GlobalWorld.add_prompt(b[0], b[1])
-        text = GlobalWorld.Call_AI(name, text, type)
+            b = GlobalWorld().get_last_talk()
+            GlobalWorld().add_prompt(b[0], b[1])
+        text = GlobalWorld().call_ai(name, text, type)
         self.answer_ready.emit(text)
 
 class EgoSettup(QMainWindow):
@@ -521,12 +718,12 @@ class EgoSettup(QMainWindow):
         self.__init_ui__()
         print('EgoSetup 2')
     def chattingSetUp(self):
-        GlobalWorld.Create_AI_Memory(self.name)
-        GlobalWorld.Create_AI_Persona(self.name, self.project.get_persona_dict()[self.name])
-        GlobalWorld.make_prompt_data()
-        GlobalWorld.getllm('gpt-oss:20b', 0.7)
+        GlobalWorld().create_ai_memory(self.name)
+        GlobalWorld().set_persona_data(self.name, self.project.get_persona_dict()[self.name])
+        GlobalWorld().init_prompt_data()
+        GlobalWorld().get_llm('gpt-oss:20b', 0.7)
     def CreateChattingView(self):
-        self.chat_view = ChattingView(self)
+        self.chat_view = ChattingView(self, 1)
         self.chat_view.set_name(self.name)
     def start(self):
         self.chattingSetUp()
@@ -547,10 +744,13 @@ class ChattingView(QWidget):
     # AI 요청 시그널 (이름, 메시지, 타입)
     request_ai_signal = Signal(str, str, int)
 
-    def __init__(self, parent):
+    # type을 받아서 1이면 초기화(즉 페르소나 설정), 0이면 기본 채팅 모드로 시작한다.
+    def __init__(self, parent, type:int):
         super().__init__(parent=parent)
-        self.parent = parent
+        self.parents = parent
         self.__name = None
+        self._footer = ''
+        self.type = type
         
         # 설정 모드 플래그 초기화
         self.setSelfBody = False
@@ -559,7 +759,6 @@ class ChattingView(QWidget):
         self.setSelfImage = False
 
         self.__init_ollama_chat()
-        
     def __init_ollama_chat(self):
         """AI 통신 스레드 및 컨트롤러 초기화"""
         self.chat_thread = QThread(self)
@@ -574,11 +773,15 @@ class ChattingView(QWidget):
 
     def name(self):
         return self.__name
+    def footer(self):
+        return self._footer
 
     def set_name(self, name: str):
         self.__name = name
         self.__init_ui__()
-        self._init_command_config() # 이름 설정 후 커맨드 설정 초기화
+        self._init_command_config()
+    def set_footer(self, footer: str):
+        self._footer = footer
 
     def addAI_message(self, msg: str):
         self.add_message(msg, False)
@@ -597,7 +800,7 @@ class ChattingView(QWidget):
         chat_layout.setSpacing(0)
 
         # 1. 헤더
-        self.header_label = QLabel(f"{self.__name}의 자기 설정")
+        self.header_label = QLabel(f"{self.__name}{self._footer}")
         self.header_label.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft)
         self.header_label.setFixedHeight(50)
         self.header_label.setStyleSheet("""
@@ -640,10 +843,11 @@ class ChattingView(QWidget):
         chat_layout.addWidget(input_area)
 
         self.setLayout(chat_layout)
-
-        # 기본 안내 메시지 출력
-        self._print_welcome_message()
-
+        
+        # 기본 안내 메시지 출력 (type이 1 일때만 호출, type이 0이라면 호출하지 않음)
+        if self.type == 1:
+            self._print_welcome_message()
+        
     def _print_welcome_message(self):
         msgs = [
             f'AI가 {self.name()}에 대한 셀프 이미지를 생성합니다.',
@@ -668,7 +872,7 @@ class ChattingView(QWidget):
         }
 
         # 2. 'show' 명령어용 데이터 Getter
-        p = self.parent.project
+        p = self.parents.project
         self.data_getters = {
             'name': lambda n: self.name(),
             'age': p.getAge, 'sex': p.getSex, 'body': p.getBody,
@@ -684,36 +888,35 @@ class ChattingView(QWidget):
         
         # 4. 도움말 텍스트
         self.help_descs = {
-            'name': 'AI 이름', 'age': 'AI 나이', 'sex': 'AI 성별',
-            'body': 'AI 외형', 'personality': 'AI 성격', 'hobby': 'AI 취미',
-            'tendency': 'AI 성향', 'self_body': 'AI가 생각하는 자신의 외형',
-            'self_personality': 'AI가 생각하는 자신의 성격', 'self_tendency': 'AI가 생각하는 자신의 성향',
-            'self_image': 'AI가 생각하는 자아'
+            'name': '이름', 'age': '나이', 'sex': '성별',
+            'body': '외형', 'personality': '성격', 'hobby': '취미',
+            'tendency': '성향', 'self_body': '자기외형',
+            'self_personality': '자기성격', 'self_tendency': '자기성향',
+            'self_image': '자아'
         }
 
     def _get_active_mode(self):
         """현재 활성화된 설정 모드 정보 반환"""
         if self.setSelfBody:
-            return 'setSelfBody', self.parent.project.set_ai_persona_self_body, 1, "외모의 특징과 전체 모습을"
+            return 'setSelfBody', GlobalWorld().set_ai_persona_self_body, 1, "정의된 네 외모의 특징과 전체 모습을"
         elif self.setSelfPersonality:
-            return 'setSelfPersonality', self.parent.project.set_ai_persona_self_personality, 2, "성격의 특징과 느낌을"
+            return 'setSelfPersonality', GlobalWorld().project.set_ai_persona_self_personality, 2, "정의된 내용을 보고 네 성향을"
         elif self.setSelfTendency:
-            return 'setSelfTendency', self.parent.project.set_ai_persona_self_tendency, 3, "성향의 특징과 느낌을"
+            return 'setSelfTendency', GlobalWorld().project.set_ai_persona_self_tendency, 3, "정의된 내용을 보고 네 성향을"
         elif self.setSelfImage:
-            return 'setSelfImage', self.parent.project.set_aI_persona_self_image, 4, "네가 본 네 모습을"
-        return None
+            return 'setSelfImage', GlobalWorld().project.set_aI_persona_self_image, 4, "정의된 내용을 보고 네가 본 네 모습을"
+        return False
 
     def command(self, text: list):
         """사용자 입력 처리 메인"""
         if not text:
             return
-
         active_mode = self._get_active_mode()
 
-        # 1. 설정 모드(대화 중)일 때 처리
+        # 1. 설정 모드일 때 처리
         if active_mode:
             self._handle_active_mode(text, active_mode)
-        # 2. 일반 명령어 처리
+        # 2. 일반 대화 시의 처리
         else:
             self._handle_general_command(text)
 
@@ -724,9 +927,10 @@ class ChattingView(QWidget):
         if 'exit' in text:
             # 모드 종료 및 저장
             setattr(self, flag_name, False)
-            last_talk = GlobalWorld.Get_last_talk()
+            last_talk = GlobalWorld().get_last_talk()
             save_func(self.name(), last_talk)
             self.add_message(f"{prompt_topic} 설정을 완료하고 저장했습니다.", False)
+            self.closeEvent()
         else:
             # AI에게 추가 요청 전송
             user_input = " ".join(text)
@@ -801,11 +1005,21 @@ class ChattingView(QWidget):
     # Messaging Logic
     # =========================================================================
     def send_message(self):
-        text = self.message_edit.text().strip()
-        if not text:
-            return
-        self.add_message(text, is_me=True)
-        self.message_edit.clear()
+        if self.type == 0:
+            text = self.message_edit.text().strip()
+            if not text:
+                return
+            self.send_ai_message(text, 0)
+            self.message_edit.clear()
+        elif self.type == 1:
+            text = self.message_edit.text().strip()
+            if not text:
+                return
+            self.add_message(text, is_me=True)
+            self.message_edit.clear()
+        else:
+            QMessageBox.critical(self, '오류', '알 수 없는 오류가 발생했습니다.', QMessageBox.StandardButton.Ok)
+            exit(0)
 
     def send_ai_message(self, msg: str, t: int = 0):
         """AI에게 메시지 전송 및 모드 진입 설정"""
@@ -851,12 +1065,12 @@ class ChattingView(QWidget):
         index = self.messages_layout.count() - 1
         self.messages_layout.insertWidget(index, line_widget)
         
-        QTimer.singleShot(0, self.scroll_to_bottom)
-
         # 사용자 메시지일 경우 명령어 처리 (중요: 재귀 호출 주의)
         # self.command 호출은 외부에서 add_message를 호출할 때만 발생해야 함.
         if is_me:
              self.command(text.split(' '))
+        
+        QTimer.singleShot(0, self.scroll_to_bottom)
 
     def scroll_to_bottom(self):
         """스크롤 최하단 이동 (안전성 확보)"""
@@ -879,7 +1093,7 @@ class ChattingView(QWidget):
         # 2. ProjectConfig를 통해 파일로 최종 저장 (확실하게 디스크에 쓰기)
         if self.parent and hasattr(self.parent, 'project'):
             print(f"[{self.__name}] 페르소나 데이터 저장 중...")
-            self.parent.project.save_project()
+            self.project.save_project()
 
         # 3. 스레드 안전하게 종료 (매우 중요: 안 하면 16ms 에러나 Segfault 발생 가능)
         if hasattr(self, 'chat_thread') and self.chat_thread.isRunning():

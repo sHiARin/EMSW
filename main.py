@@ -5,8 +5,8 @@ from EMSW_UI.EMSW_MainUI import EMSW
 import os, json, sys
 
 def CreateProject(dir:str):
-    if not GlobalWorld.instance().is_ollama_running():
-        result = GlobalWorld.instance().start_ollama()
+    if not GlobalWorld().is_ollama_running():
+        result = GlobalWorld().start_ollama()
         if not result:
             print('cannot start ollama')
             exit(0)

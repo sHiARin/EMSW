@@ -11,13 +11,14 @@ from PySide6.QtGui import QGuiApplication
 from PySide6.QtCore import Signal, QObject
 from Config.config import ProgrameAction
 
-from langchain_core.messages import AIMessage, HumanMessage
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain_core.prompts import ChatPromptTemplate
 from langchain_community.chat_models import ChatOllama
 from langchain_core.output_parsers import StrOutputParser
+from langchain_ollama import ChatOllama
 
 from pathlib import Path
-import copy, os, json, zipfile, io, pytz, requests, subprocess
+from typing import Union, Dict, List, Any
+import copy, os, json, zipfile, time, pytz, requests, subprocess
 
 """
     중앙에서 시그널 정보를 처리하는 싱글톤 클래스
@@ -181,7 +182,7 @@ class ProjectConfig:
             temp_file = Path('./data/.tmp._tmsw_')
             if temp_file.exists():
                 temp_file.unlink()
-                
+
         except Exception as e:
             print(f"Failed to open project: {e}")
 
@@ -263,18 +264,20 @@ class ProjectConfig:
 
     def set_width(self, width):
         self.metadata['ProgrameData']['windows_scale']['width'] = width
-
+    
+    def set_Persona_editing_windows_geometry(self, x, y, w, h):
+        self.metadata['ProgrameData']['Persona_editing_windows'].update(zip(['x', 'y', 'w', 'h'], [x, y, w, h]))
     # --- Persona Access ---
     def get_persona_dict(self):
         return self.project_items['AI_Persona']
     
     def get_persona_names(self):
-        return self.project_items['AI_Perusona']
+        return self.project_items['AI_Persona'].keys()
 
     def search_persona_name(self, name: str):
         return name in self.project_items['AI_Persona']
 
-    def updatepersonaName(self, name: str):
+    def update_persona_Name(self, name: str):
         """새 페르소나 생성 (Sample 복사)"""
         print(self.project_items['AI_Persona'].keys())
         if name not in self.project_items['AI_Persona']:
@@ -291,37 +294,6 @@ class ProjectConfig:
             return True
         return False
 
-    def updatepersonaAge(self, name, age):
-        return self._update_persona_field(name, 'age', age)
-
-    def updatepersonaSex(self, name, sex):
-        return self._update_persona_field(name, 'sex', sex)
-
-    def updatepersonaHobby(self, name, hobby, data_type):
-        return self._update_persona_field(name, 'hobby', hobby, data_type)
-
-    def updatepersonaPersonality(self, name, personality, data_type):
-        return self._update_persona_field(name, 'personality', personality, data_type)
-
-    def updatepersonaTendency(self, name, tendency, data_type):
-        return self._update_persona_field(name, 'tendency', tendency, data_type)
-
-    def updatepersonaBody(self, name, body, data_type):
-        return self._update_persona_field(name, 'body', body, data_type)
-
-    # --- Persona Setters (Self-Image) ---
-    def set_ai_persona_self_body(self, name, value):
-        self._update_persona_field(name, 'self_body', value)
-    
-    def set_ai_persona_Self_personality(self, name, value):
-        self._update_persona_field(name, 'self_personality', value)
-         
-    def set_ai_perusona_self_tendency(self, name, value):
-        self._update_persona_field(name, 'self_tendency', value)
-         
-    def Set_AI_Perusona_Self_Image(self, name, value):
-        self._update_persona_field(name, 'self_image', value)
-
     # --- Persona Getters ---
     def getAge(self, name): return self.project_items['AI_Persona'][name].get('age')
     def getSex(self, name): return self.project_items['AI_Persona'][name].get('sex')
@@ -335,8 +307,21 @@ class ProjectConfig:
     def getSelfTendency(self, name): return self.project_items['AI_Persona'][name].get('self_tendency', [])
     def getSelfImage(self, name): return self.project_items['AI_Persona'][name].get('self_image', [])
     
-    def getPerusonaEditing_windowData(self):
-        return self.metadata['ProgrameData']['Persona_editing_windows']
+    def getPersonaEditing_WindowData(self): return self.metadata['ProgrameData']['Persona_editing_windows']
+
+    # --- loader GlobalWorld ---
+
+    def load_global(self):
+        """
+            기존에 생성된 AI를 Global로 업로드 함.
+        """
+        names = self.get_persona_names()
+        if len(names) == 0:
+            return False
+        
+        for n in names:
+            GlobalWorld().create_ai_memory(n)
+            GlobalWorld().set_persona_data(name = n, persona_data = self.get_persona_dict()[n])
 
     # =========================================================================
     # Chat Logic
@@ -415,233 +400,235 @@ def Display():
         screen_info.append(info)
     return screen_info
 
-# 중앙 AI LLM 제어 클래스
 class GlobalWorld:
     """
-    이 클래스는 사용자가 생성한 설정 내지는 기본적인 AI의 설정을 관리하며, Ollama과의 연결을 직접적으로 관리하는 instance class.
-    일반적으로 프로그램이 시작될 때 시작되고, 프로그램이 끝날 때 종료된다.
-    프로그램이 시작될 때 -> ollma를 호출하고, 프로그램이 종료될 때 ollama를 종료한다. 단, 사전에 ollama가 설치되어 있어야 한다.
-    직접 staticmethod인 instance를 통해 호출할 수 있다.
+    중앙 AI LLM 제어 및 설정 관리 클래스 (Singleton).
+    Ollama 프로세스 관리, AI 메모리, 프롬프트 생성 및 실행을 담당합니다.
     """
-
-    # 싱글톤 패턴
     _instance = None
 
-    # 전역 변수
-    # 로컬 Ollama Host를 위한 주소
+    # 상수 설정
     OLLAMA_HOST = "http://127.0.0.1:11434"
-    # 로컬 AI Memory를 저장하는 주소
-    AI_Memory = None
-    # AI의 프롬프트 리스트
-    Prompt = None
-    # 로컬 llm과 통신할 수 있도록 하는 langchain
-    llm = None
-    # 로컬 llm에 적용된 모델 종류
-    ollama = None
-    # 로컬 llm에 적용된 temperature (0 : 결정론적, 0.1~0.3 : 답이 일관적이게 변함, 0.8~1 이상 : 답에 창의성이 부여됨.)
-    temperature = 0.7
+    DEFAULT_TEMPERATURE = 0.7
+    
+    # 데이터 키 정의
+    PERSONA_KEYS = [
+        'age', 'sex', 'personality', 'hobby', 'tendency', 
+        'body', 'self_body', 'self_personality', 'self_tendency', 'self_image'
+    ]
 
-    # ollama가 동작중인지 확인
-    def is_ollama_running(self):
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super(GlobalWorld, cls).__new__(cls)
+            cls._instance._initialized = False
+        return cls._instance
+
+    def __init__(self):
+        if getattr(self, '_initialized', False):
+            return
+            
+        self.ai_memory: Dict[str, Dict[str, Any]] = {}
+        self.prompt_history: List[tuple] = []
+        self.llm = None
+        self._initialized = True
+
+    # =========================================================================
+    # Ollama Process Management
+    # =========================================================================
+    def is_ollama_running(self) -> bool:
+        """Ollama 서버가 실행 중인지 확인합니다."""
         try:
-            r = requests.get(f"{self.OLLAMA_HOST}/api/tags", timeout=1)
-            return r.status_code == 200
-        except Exception:
+            response = requests.get(f"{self.OLLAMA_HOST}/api/tags", timeout=1)
+            return response.status_code == 200
+        except requests.RequestException:
             return False
-    # ollama를 실행하는 메소드
-    def start_ollama(self):
-        cmd = ["ollama", "serve"]
-        subprocess.Popen(cmd, creationflags=subprocess.CREATE_NEW_CONSOLE)
-        # 서버가 시작될 시간을 기다림
-        for _ in range(10):
-            if self.is_ollama_running():
-                print("✔ Ollama 서버 실행됨.")
-                return True
-            self.time.sleep(1)
-        return False
-    # 가장 기초적인 system prompt 데이터를 만드는 메소드
-    def make_prompt_data():
-        if GlobalWorld.instance().Prompt is None:
-            GlobalWorld.instance().Prompt = [
-                ("system", "you are a helpful assistant.")
-            ]
-        if GlobalWorld.instance().Prompt:
+
+    def start_ollama(self) -> bool:
+        """Ollama 서버를 서브 프로세스로 실행합니다."""
+        if self.is_ollama_running():
+            print("✔ Ollama 서버가 이미 실행 중입니다.")
+            return True
+
+        try:
+            cmd = ["ollama", "serve"]
+            # Windows: CREATE_NEW_CONSOLE flags (subprocess.CREATE_NEW_CONSOLE is approx 16)
+            creation_flags = subprocess.CREATE_NEW_CONSOLE if hasattr(subprocess, 'CREATE_NEW_CONSOLE') else 0
+            
+            subprocess.Popen(cmd, creationflags=creation_flags)
+            
+            # 서버 시작 대기 (최대 10초)
+            for _ in range(10):
+                if self.is_ollama_running():
+                    print("✔ Ollama 서버 실행됨.")
+                    return True
+                time.sleep(1)
+            
+            print("❌ Ollama 서버 실행 실패 (타임아웃).")
+            return False
+        except Exception as e:
+            print(f"❌ Ollama 실행 중 오류 발생: {e}")
+            return False
+
+    # =========================================================================
+    # LLM & Prompt Management
+    # =========================================================================
+    def get_llm(self, model_name: str, temperature: float = DEFAULT_TEMPERATURE):
+        """LangChain ChatOllama 인스턴스를 반환하거나 생성합니다."""
+        # 모델이나 설정이 바뀌면 재생성 필요 (단순 싱글톤 유지가 아니라 팩토리 성격이 필요할 수 있음)
+        # 여기서는 기존 로직을 유지하되 인스턴스가 없으면 생성
+        if self.llm is None:
+            self.llm = ChatOllama(model=model_name, temperature=temperature)
+        return self.llm
+
+    def init_prompt_data(self):
+        """기본 시스템 프롬프트를 초기화합니다."""
+        if not self.prompt_history:
+            self.prompt_history = [("system", "You are a helpful assistant.")]
             return True
         return False
-    # 기초적인 프롬프트를 추가하는 메소드
-    def add_prompt(type__:str, message:str):
-        if (GlobalWorld.instance().Prompt is None):
-            return False
-        GlobalWorld.instance().Prompt.append((type__, message))
+
+    def add_prompt(self, role: str, message: str) -> bool:
+        """프롬프트 히스토리에 메시지를 추가합니다."""
+        if self.prompt_history is None:
+             self.init_prompt_data()
+        self.prompt_history.append((role, message))
         return True
-    # ollama에서 모델을 호출한다.
-    def getllm(ollama_model_name:str, temperature):
-        if GlobalWorld.instance().llm is None:
-            GlobalWorld.instance().llm = ChatOllama(model=ollama_model_name, temperature=temperature)
-        return GlobalWorld.instance().llm
-    # ollama에서 llm을 호출할때, 캐릭터와 메시지, 그리고 내용에 따라 미리 정의된 'prompt'를 호출한다.
-    # chain은 여기서 지역적으로 형성되며, 사라진다.
-    # value : 현재 메시지의 기준이며, 데이터 점검에 해당한다.
-    # 1 : set self body
-    # 2 : set self personality
-    # 3 : set self tendency
-    # 4 : set self Image
-    # 0 : nomar chatting
-    def Call_AI(name: str, input_msg: str, value: int):
-        # 1. AI 존재 여부 확인
-        if name not in GlobalWorld.Get_AI_Names():
+    
+    def get_last_talk(self):
+        """가장 최근 대화 내용을 반환합니다."""
+        return self.prompt_history[-1] if self.prompt_history else None
+
+    def call_ai(self, name: str, input_msg: str, mode_value: int):
+        """
+        AI 모델을 호출하여 응답을 생성합니다.
+        mode_value: 0=Chat, 1=Body, 2=Personality, 3=Tendency, 4=Image
+        """
+        # 1. AI 존재 확인
+        if name not in self.ai_memory:
             return None
 
         # 2. 페르소나(시스템 프롬프트) 구성
-        # 여러 줄의 메시지보다 하나의 잘 정리된 블록이 LLM에게 더 강력하게 작용합니다.
-        ai_data = GlobalWorld.instance().AI_Memory[name]
+        ai_data = self.ai_memory[name]
         persona_text = f"Your name is {name}.\n"
-    
-        # 설정 키들을 순회하며 설명 추가
-        target_keys = ['age', 'sex', 'personality', 'hobby', 'tendency', 'body']
-        for k in target_keys:
+        
+        for k in ['age', 'sex', 'personality', 'hobby', 'tendency', 'body']:
             if k in ai_data:
                 persona_text += f"Your {k} is {ai_data[k]}.\n"
-            
-        # [중요] 역할 몰입을 위한 강제 지침 추가
+        
         persona_text += "You must strictly maintain this persona and tone throughout the conversation."
-
-        # 시스템 메시지 생성 (가장 강력한 지침)
         system_message = ("system", persona_text)
 
-        # 3. 사용자 입력 메시지 결정 (전략 패턴 적용)
-        # value에 따른 질문 템플릿 정의
+        # 3. 질문 템플릿 선택 (Query Map)
         query_map = {
             1: "정의된 네 외모를 특징과 전체 모습을 직접 정의하여 설명하라",
             2: "정의된 내용을 보고 네 성격을 직접 정의하여 설명하라.",
             3: "정의된 내용을 보고 네 성향을 직접 정의하여 설명하라.",
             4: "정의된 내용을 보고 네가 본 네 모습을 직접 정의하여 설명하라."
         }
-
-        # input_msg가 있으면 그걸 쓰고, 없으면 value에 매핑된 질문 사용
-        target_query = input_msg if input_msg else query_map.get(value, "")
-
+        
+        # 입력 메시지가 있으면 우선 사용, 없으면 모드에 따른 쿼리 사용
+        target_query = input_msg if input_msg else query_map.get(mode_value, "")
+        
         if not target_query:
-            return None  # 실행할 쿼리가 없는 경우
+            return None
 
-       # 4. 프롬프트 리스트 조립 (순서가 매우 중요함)
-        # [순서] 1. 시스템 설정(페르소나) -> 2. 과거 대화 기록(GlobalWorld.Prompt) -> 3. 현재 질문
-        final_messages = [system_message] 
-    
-        # 기존 대화 내역 복사 및 추가 (기존 Prompt에 시스템 설정이 섞여있지 않다고 가정)
-        # 만약 GlobalWorld.Prompt에 이미 system 메시지가 있다면 중복될 수 있으니 주의 필요
-        final_messages.extend(copy.deepcopy(GlobalWorld.instance().Prompt))
-    
-        # 마지막에 사용자 입력 플레이스홀더 추가
+        # 4. 프롬프트 메시지 조립
+        # [System Persona] + [History] + [Current Input]
+        final_messages = [system_message]
+        final_messages.extend(copy.deepcopy(self.prompt_history))
         final_messages.append(('user', '{input}'))
 
-        # 5. LangChain 체인 생성 및 실행
+        # 5. 실행
+        if self.llm is None:
+            # LLM이 초기화되지 않았으면 기본값으로 초기화 시도 (혹은 에러 처리)
+            return None
+
         prompt_template = ChatPromptTemplate.from_messages(final_messages)
         output_parser = StrOutputParser()
-        chain = prompt_template | GlobalWorld.instance().llm | output_parser
+        chain = prompt_template | self.llm | output_parser
 
-        # 실행
         return chain.invoke({'input': target_query})
-    # Create_AI_Memory 
-    def Create_AI_Memory(name:str):
-        if name not in GlobalWorld.instance().AI_Memory.keys():
-            GlobalWorld.instance().AI_Memory = {name : {}}
-        return GlobalWorld.instance().AI_Memory is not None
-    # 기존에 저장된 페르소나를 입력받는 메소드
-    def Create_AI_Persona(name:str, Persona:dict):
-        key_list = ['age', 'sex', 'personality', 'hobby', 'tendency', 'body', 'self_body', 'self_personality', 'self_tendency', 'self_image']
-        for k in key_list:
-            GlobalWorld.instance().AI_Memory[name][k] = Persona[k]
-        if len(GlobalWorld.instance().AI_Memory[name]['self_body']) == 0:
-            return False
-        elif len(GlobalWorld.instance().AI_Memory[name]['self_personality']) == 0:
-            return False
-        elif len(GlobalWorld.instance().AI_Memory[name]['self_tendency']) == 0:
-            return False
-        elif len(GlobalWorld.instance().AI_Memory[name]['self_image']) == 0:
-            return False
+
+    # =========================================================================
+    # Memory & Persona Management
+    # =========================================================================
+    def create_ai_memory(self, name: str) -> bool:
+        """새로운 AI 메모리 공간을 생성합니다."""
+        if name not in self.ai_memory:
+            self.ai_memory[name] = {}
+            return True
+        return True # 이미 존재해도 성공으로 간주
+
+    def get_ai_names(self):
+        """메모리에 등록된 AI 이름 목록을 반환합니다."""
+        return self.ai_memory.keys()
+
+    def get_ai_persona(self, name: str) -> Dict:
+        """특정 AI의 페르소나 데이터를 반환합니다."""
+        return self.ai_memory.get(name, {})
+
+    def set_persona_data(self, name: str, persona_data: dict) -> bool:
+        """
+        딕셔너리 형태의 페르소나 데이터를 한 번에 설정하고 필수 키를 검증합니다.
+        """
+        if name not in self.ai_memory:
+            self.create_ai_memory(name)
+            
+        # 데이터 복사 및 설정
+        target_memory = self.ai_memory[name]
+        for k in self.PERSONA_KEYS:
+            if k in persona_data:
+                target_memory[k] = persona_data[k]
+        
+        # 필수 Self 데이터 검증
+        required_self_keys = ['self_body', 'self_personality', 'self_tendency', 'self_image']
+        for key in required_self_keys:
+            val = target_memory.get(key)
+            if not val or len(val) == 0:
+                return False
         return True
-    
-    """
-    체크할 키 리스트를 받아, len을 조사하여 제대로 설정이 됐는지 검사
-    0 : 모두 설정되어 있음.
-    -1 : 이름이 존재하지 않음, 생성이 되지 않음
-    -2 : 첫 번째 키가 존재하지 않음(age)
-    -3 : 두 번째 키가 존재하지 않음(sex)
-    -4 : 세 번째 키가 존재하지 않음(personality)
-    -5 : 네 번째 키가 존재하지 않음(hobby)
-    -6 : 다섯번째 키가 존재하지 않음(tendency)
-    -7 : 여섯번째 키가 존재하지 않음(body)
-    -8 : 일곱번째 키가 존재하지 않음(self_body)
-    -9 : 여덟번째 키가 존재하지 않음(self_personality)
-    -10 : 아홉번째 키가 존재하지 않음(self_tendency)
-    -11 : 열번째 키가 존재하지 않음(self_image)
-    -12 : 키에 데이터가 저장되어 있지 않다.
-    """
-    def check_Persona(name:str, key:list):
-        if name not in GlobalWorld.Get_AI_Names():
+
+    def check_persona_integrity(self, name: str, keys_to_check: list) -> Union[int, bool]:
+        """
+        페르소나 데이터의 무결성을 검사합니다.
+        Return: 0(성공), 음수(에러 코드)
+        """
+        if name not in self.ai_memory:
             return -1
-        code_return = {'age' : -2, 'sex' : -3, 'personality' : -4, 'hobby' : -5, 'tendency' : -6, 'body' : -7, 'self_body' : -8, 'self_personality' : -9, 'self_tendency' : -10, 'self_image' : -11}
-        def checking_type(key):
-            if k is int:
-                return 1
-            elif k is str:
-                return 2
-            elif k is dict:
-                return 3
-            elif k is list:
-                return 4
-            else:
-                return -1
-        for k in key:
-            if k not in GlobalWorld.Get_AI_Persona(name).keys():
-                return -1
-            else:
-                if checking_type(GlobalWorld.Get_AI_Persona(name)[k] == 1):
-                    continue
-                elif (checking_type(GlobalWorld.Get_AI_Persona(name)[k]) == 2):
-                    if len(checking_type) == 0:
-                        return code_return[k]
-                    continue
-                elif (checking_type(GlobalWorld.Get_AI_Persona(name)[k]) == 3):
-                    if len(checking_type.keys()) == 0:
-                        return code_return[k]
-                    continue
-                elif (checking_type(GlobalWorld.Get_AI_Persona(name)[k]) == 4):
-                    if len(checking_type) == 0:
-                        return code_return[k]
-                    continue
-                elif checking_type(GlobalWorld.Get_AI_Persona(name)[k] == -1):
-                    return -12
-                else:
-                    continue
-        return True
-    # Self_body, 즉 AI가 대화를 통해 정의한 자신의 외형을 설정하는 메소드
-    def Set_AI_Persona_Self_body(name:str, data:str):
-        GlobalWorld.instance().AI_Memory[name]['self_body'] = data
-    # Self_personality, 즉 AI가 대화를 통해 정의한 자신의 성격을 설정하는 메소드
-    def Set_AI_Persona_Self_Personality(name:str, data:str):
-        GlobalWorld.instance().AI_Memory[name]['self_personality'] = data
-    # Self_Tendency, 즉 AI가 대화를 통해 정의한 자신의 성향을 설정하는 메소드
-    def Set_AI_Persona_Self_Tendency(name:str, data:str):
-        GlobalWorld.instance().AI_Memory[name]['self_tendency'] = data
-    # Self_Image, 즉 AI가 대화를 통해 정의한 자신의 이미지를 설정하는 메소드
-    def Set_AI_Persona_Self_Image(name:str, data:str):
-        GlobalWorld.instance().AI_Memory[name]['self_image'] = data
-    # AI Persona를 반환하는 메소드.
-    def Get_AI_Persona(name:str):
-        return GlobalWorld.instance().AI_Memory[name]
-    # 실행중인 AI Persona의 정보의 key를 받아오는 메소드
-    def Get_AI_Names():
-        return GlobalWorld.instance().AI_Memory.keys()
-    def Get_last_talk():
-        return GlobalWorld.instance().Prompt[-1]
-    # 생성자
-    def __init__(self):
-        self.AI_Memory = {}
-    @staticmethod
-    # singleton 패턴 인스턴스
-    def instance():
-        if GlobalWorld._instance is None:
-            GlobalWorld._instance = GlobalWorld()
-        return GlobalWorld._instance
+
+        # 에러 코드 매핑
+        error_codes = {
+            'age': -2, 'sex': -3, 'personality': -4, 'hobby': -5, 
+            'tendency': -6, 'body': -7, 'self_body': -8, 
+            'self_personality': -9, 'self_tendency': -10, 'self_image': -11
+        }
+        
+        persona = self.ai_memory[name]
+
+        for k in keys_to_check:
+            if k not in persona:
+                return error_codes.get(k, -12)
+            
+            value = persona[k]
+            
+            # 타입 및 데이터 존재 여부 확인 (Pythonic하게 단순화)
+            # 빈 문자열, 빈 리스트, 빈 딕셔너리는 False로 평가됨
+            if not value and not isinstance(value, int): # int 0은 데이터가 있는 것으로 간주할 경우 주의
+                 return error_codes.get(k, -12)
+
+        return 0 # 성공
+
+    # =========================================================================
+    # Setters (개별 설정)
+    # =========================================================================
+    def set_ai_persona_self_body(self, name: str, data: str):
+        self.ai_memory[name]['self_body'] = data
+
+    def set_ai_persona_self_personality(self, name: str, data: str):
+        self.ai_memory[name]['self_personality'] = data
+
+    def set_ai_persona_self_tendency(self, name: str, data: str):
+        self.ai_memory[name]['self_tendency'] = data
+
+    def set_ai_persona_self_image(self, name: str, data: str):
+        self.ai_memory[name]['self_image'] = data
