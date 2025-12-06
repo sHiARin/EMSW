@@ -183,6 +183,8 @@ class ProjectConfig:
 
         except Exception as e:
             pass
+        print(self.metadata)
+        print(self.project_items)
 
     # 문서 파일을 추가했을 때 문서 파일의 데이터를 추가하면서 수행할 작업
     def open_document_files(self, name:str, title:str, text:str):
@@ -280,6 +282,7 @@ class ProjectConfig:
     # --- document data update ---
 
     def update_document(self, name, title:str, range:int, text:str):
+        title = title.split('.')[0]
         self.project_items['documents'][name]['title'][range + 1] = title
         self.project_items['documents'][name]['range'] += 1
         self.project_items['documents'][name]['index']['title'] = range + 1
@@ -319,6 +322,30 @@ class ProjectConfig:
             self.project_items['AI_Persona'][name][field] = value
             if data_type:
                 self.project_items['AI_Persona'][name][f'{field}_data_type'] = data_type
+            return True
+        return False
+    def _update_persona_self_body(self, name, value):
+        if name in self.project_items['AI_Persona'].keys():
+            self.project_items['AI_Persona'][name]['self_body'] = [value]
+            self.project_items['AI_Persona'][name][f'self_body_data_type'] = 'str'
+            return True
+        return False
+    def _update_persona_self_personality(self, name, value):
+        if name in self.project_items['AI_Persona'].keys():
+            self.project_items['AI_Persona'][name]['self_personality'] = [value]
+            self.project_items['AI_Persona'][name][f'self_personality_data_type'] = 'str'
+            return True
+        return False
+    def _update_persona_self_tendency(self, name, value):
+        if name in self.project_items['AI_Persona'].keys():
+            self.project_items['AI_Persona'][name]['self_tendency'] = [value]
+            self.project_items['AI_Persona'][name][f'self_tendency_data_type'] = 'str'
+            return True
+        return False
+    def _update_persona_self_image(self, name, value):
+        if name in self.project_items['AI_Persona'].keys():
+            self.project_items['AI_Persona'][name]['self_image'] = [value]
+            self.project_items['AI_Persona'][name][f'self_image_data_type'] = 'str'
             return True
         return False
 
@@ -621,6 +648,7 @@ class GlobalWorld:
             Prompt에 삽입되며, '어떤지 묻는'식으로 활용한다.
         """
         self.add_prompt("user", f"제목 : {name}\n내용 : {text}")
+        print(self.prompt_history)
 
     def get_ai_names(self):
         """메모리에 등록된 AI 이름 목록을 반환합니다."""

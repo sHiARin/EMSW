@@ -908,6 +908,7 @@ class ChattingView(QWidget):
         self._footer = footer
 
     def addAI_message(self, msg: str):
+        self._last_ai_message = msg
         self.add_message(msg, False)
 
     # =========================================================================
@@ -1022,13 +1023,13 @@ class ChattingView(QWidget):
     def _get_active_mode(self):
         """현재 활성화된 설정 모드 정보 반환"""
         if self.setSelfBody:
-            return 'setSelfBody', GlobalWorld().set_ai_persona_self_body, 1, "정의된 네 외모의 특징과 전체 모습을"
+            return 'setSelfBody', GlobalWorld().set_ai_persona_self_body, self.parents.project._update_persona_self_body, 1, "정의된 네 외모의 특징과 전체 모습을"
         elif self.setSelfPersonality:
-            return 'setSelfPersonality', GlobalWorld().set_ai_persona_self_personality, 2, "정의된 내용을 보고 네 성향을"
+            return 'setSelfPersonality', GlobalWorld().set_ai_persona_self_personality, self.parents.project._update_persona_self_personality, 2, "정의된 내용을 보고 네 성향을"
         elif self.setSelfTendency:
-            return 'setSelfTendency', GlobalWorld().set_ai_persona_self_tendency, 3, "정의된 내용을 보고 네 성향을"
+            return 'setSelfTendency', GlobalWorld().set_ai_persona_self_tendency, self.parents.project._update_persona_self_tendency, 3, "정의된 내용을 보고 네 성향을"
         elif self.setSelfImage:
-            return 'setSelfImage', GlobalWorld().set_aI_persona_self_image, 4, "정의된 내용을 보고 네가 본 네 모습을"
+            return 'setSelfImage', GlobalWorld().set_ai_persona_self_image, self.parents.project._update_persona_self_image, 4, "정의된 내용을 보고 네가 본 네 모습을"
         return False
 
     def command(self, text: list):
@@ -1046,13 +1047,14 @@ class ChattingView(QWidget):
 
     def _handle_active_mode(self, text: list, mode_info):
         """설정 모드 중의 로직 처리"""
-        flag_name, save_func, type_id, prompt_topic = mode_info
+        flag_name, save_func, local_save, type_id, prompt_topic = mode_info
         
         if 'exit' in text:
             # 모드 종료 및 저장
             setattr(self, flag_name, False)
             last_talk = GlobalWorld().get_last_talk()
-            save_func(self.name(), last_talk)
+            save_func(self.name(), self._last_ai_message)
+            local_save(self.name(), self._last_ai_message)
             self.add_message(f"{prompt_topic} 설정을 완료하고 저장했습니다.", False)
         else:
             # AI에게 추가 요청 전송
@@ -1078,6 +1080,7 @@ class ChattingView(QWidget):
 
     # ----- 명령어 상세 구현 -----
     def _cmd_show(self, args):
+        print(args)
         if not args:
             self.add_message("확인할 항목을 입력하세요.", False)
             return
@@ -1085,6 +1088,7 @@ class ChattingView(QWidget):
         key = self.key_map.get(args[0], args[0])
         if key in self.data_getters:
             data = self.data_getters[key](self.name())
+            print(data)
             # 데이터 포맷팅
             if isinstance(data, list):
                 msg = "\n".join(str(t) for t in data)
