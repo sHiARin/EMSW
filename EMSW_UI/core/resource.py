@@ -72,7 +72,7 @@ class ProjectConfig:
         'documents': {'sample': {'title': {0 : 'contents'}, 'index' : {'contents' : 0}, 'text': {0 : 'contents'}, 'range':0}},
         'data': {'sample': {'type': 'content'}},
         'timer': {'sample': {'input_time': 0, 'focus_time': 0, 'active_time': 0}},
-        'wiki': {"sample": {"index": [], "bodies": []}}
+        'wiki': {"section" : {"keywords" : "value"}, "link" : {"index": "contents"}, "bodies": {"contents" : "body_contents"}}
     }
 
     DEFAULT_METADATA = {
@@ -111,7 +111,6 @@ class ProjectConfig:
         path = Path(file_path)
         self.project_dir = path.parent
         self.project_name = path.name
-        print(f"New Project: {path}")
         
         self.save_project()
         
@@ -126,7 +125,6 @@ class ProjectConfig:
 
         path = Path(directory) / name
         if not path.exists():
-            print(f"Error: File not found {path}")
             return
 
         temp_items = {}
@@ -184,7 +182,7 @@ class ProjectConfig:
                 temp_file.unlink()
 
         except Exception as e:
-            print(f"Failed to open project: {e}")
+            pass
 
     # 문서 파일을 추가했을 때 문서 파일의 데이터를 추가하면서 수행할 작업
     def open_document_files(self, name:str, title:str, text:str):
@@ -194,8 +192,7 @@ class ProjectConfig:
         file['text'][1] = text
         file['range'] = 1
         self.project_items['documents'][name] = file
-        
-        print(self.project_items['documents'])
+
         # 자동 저장.
         self.save_project()
 
@@ -207,7 +204,6 @@ class ProjectConfig:
             target_path = self.project_dir / self.project_name
         
         self._save_to_file(target_path)
-        print(f"Saved to: {target_path}")
 
     def _save_to_file(self, path):
         """file 파일 쓰기 로직 (중복 제거됨)"""
@@ -233,7 +229,7 @@ class ProjectConfig:
                         file_path = f"{section}/{name}{ext}"
                         z.writestr(file_path, json.dumps(content, ensure_ascii=False))
         except Exception as e:
-            print(f"Save failed: {e}")
+            pass
 
     def change_project_title(self, new_title: str):
         if not self.project_dir or not self.project_name:
@@ -248,7 +244,7 @@ class ProjectConfig:
                 old_path.rename(new_path)
                 self.project_name = new_title
             except OSError as e:
-                print(f"Rename failed: {e}")
+                pass
 
     # =========================================================================
     # Data Accessors (Getter/Setter)
@@ -289,6 +285,17 @@ class ProjectConfig:
         self.project_items['documents'][name]['index']['title'] = range + 1
         self.project_items['documents'][name]['text'][range + 1] = text
 
+    # --- wiki update ---
+    # section에 keyword를 추가하기
+    def update_keywords(self, keyword:str, value:str):
+        self.project_items['wiki']['section'][keyword] = value
+    # link에 index를 추가하기
+    def update_links(self, index:str, content:str):
+        self.project_items['wiki']['link'][index] = content
+    # boides에 body_contents를 추가하기
+    def update_boides(self, content:str, body_content:str):
+        self.project_items['wiki']['bodies'][content] = body_content
+
     # --- Persona Access ---
     def get_persona_dict(self):
         return self.project_items['AI_Persona']
@@ -301,7 +308,6 @@ class ProjectConfig:
 
     def update_persona_Name(self, name: str):
         """새 페르소나 생성 (Sample 복사)"""
-        print(self.project_items['AI_Persona'].keys())
         if name not in self.project_items['AI_Persona']:
             self.project_items['AI_Persona'][name] = copy.deepcopy(self.DEFAULT_PROJECT_ITEMS['AI_Persona']['sample'])
             return True
@@ -346,6 +352,16 @@ class ProjectConfig:
     def get_document_index(self, name:str, title:str):
         return self.project_items['documents'][name]['index'][title]
     
+    # --- wiki Getters ---
+    # wiki의 section의 keyword를 반환
+    def get_keywords(self): return self.project_items['wiki']['section'].keys()
+    # wiki의 section의 keyword의 value를 반환
+    def get_value(self, keyword:str): return self.project_items['wiki']["section"][keyword]
+    # wiki의 link의 index를 반환
+    def get_index(self):return self.project_items['wiki']['link'].keys()
+    # wiki의 bodies의 contensts를 반환
+    def get_bodies(self): return self.project_items['wiki']['bodies'].keys()
+
     # --- loader GlobalWorld ---
 
     def load_global(self):
@@ -595,6 +611,16 @@ class GlobalWorld:
             self.ai_memory[name] = {}
             return True
         return True # 이미 존재해도 성공으로 간주
+    
+    def add_documents(self, name:str, text:str):
+        """
+            문서 파일을 열었을 때, AI가 읽을 문서를 설정
+            여기서, 문서 파일은 기본적으로 Chatting의 형식으로 그것을 읽고 반응을 내보인다.
+            테스트에 활용되는 파일은 '습작으로 쓰던 좀비 아포칼립스 물'.
+            테스트로 쓴 파일은 1화까지만 사용.
+            Prompt에 삽입되며, '어떤지 묻는'식으로 활용한다.
+        """
+        self.add_prompt("user", f"제목 : {name}\n내용 : {text}")
 
     def get_ai_names(self):
         """메모리에 등록된 AI 이름 목록을 반환합니다."""

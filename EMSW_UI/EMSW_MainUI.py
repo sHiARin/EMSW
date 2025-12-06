@@ -5,7 +5,8 @@ from PySide6.QtWidgets import (QMainWindow, QWidget, QFileDialog,
                                QScrollArea, QCheckBox, QInputDialog,
                                QTableWidget, QFrame, QHeaderView,
                                QTableWidgetItem, QListWidget,
-                               QSplitter, QTreeView, QTextEdit)
+                               QSplitter, QTreeView, QTextEdit,
+                               QTextBrowser)
 from PySide6.QtGui import (QKeyEvent, QAction, QStandardItemModel,
                            QStandardItem, QPalette, QColor,
                            QGuiApplication, QFont, QTextItem, 
@@ -13,12 +14,13 @@ from PySide6.QtGui import (QKeyEvent, QAction, QStandardItemModel,
 from PySide6.QtCore import (Qt, Signal, QTimer,
                             QModelIndex, QObject, QThread,
                             Slot, QThread)
+
 from shiboken6 import isValid
 from helper_hwp import hwp_to_txt
 from Config.config import ProgrameAction, ProgrameEventChecker
 from EMSW_UI.core.resource import ProjectConfig, Display, GlobalSignalHub, GlobalWorld
 
-import os, copy
+import os, copy, hashlib
 
 ###
 #    프로그램의 메인 뷰
@@ -112,8 +114,6 @@ class EMSW(QMainWindow):
         # _init_ui()에 삽입될 view data 설정
         self._horizontal_spliter = QSplitter()
         self._horizontal_spliter.setOrientation(Qt.Orientation.Horizontal)
-        self._vertical_spliter = QSplitter()
-        self._vertical_spliter.setOrientation(Qt.Orientation.Vertical)
         self._create_menus()
         self._init_ui()
 
@@ -125,12 +125,11 @@ class EMSW(QMainWindow):
         mainboard = QWidget()
         hBoxLayout = QVBoxLayout()
         hBoxLayout.addWidget(self._horizontal_spliter)
-        hBoxLayout.addWidget(self._vertical_spliter)
         mainboard.setLayout(hBoxLayout) # 메인 레이아웃
         self.setCentralWidget(mainboard)
 
         self.documentView = DocumentView(self, self.project)
-        self._vertical_spliter.addWidget(self.documentView)
+        self._horizontal_spliter.addWidget(self.documentView)
         self.show()
 
     # =========================================================================
@@ -140,7 +139,6 @@ class EMSW(QMainWindow):
         mb = self.menuBar()
         self._setup_file_menu(mb.addMenu("파일"))
         mb.addMenu("편집") # 기능 구현 시 추가
-        mb.addMenu("도구") # 기능 구현 시 추가
         self._setup_character_menu(mb.addMenu("캐릭터"))
         self._setup_view_menu(mb.addMenu("뷰"))
 
@@ -160,7 +158,6 @@ class EMSW(QMainWindow):
     def _setup_character_menu(self, menu):
         self._add_action(menu, "새 캐릭터", self._create_persona)
         self._add_action(menu, "캐릭터 편집하기", self._edit_persona)
-
     def _setup_view_menu(self, menu):
         self._add_action(menu, "AI 챗 뷰 추가", self._add_chatting_view)
 
@@ -236,6 +233,12 @@ class EMSW(QMainWindow):
                         if name in self.project.get_documents_name() and title not in self.project.get_documents_title(name):
                             self.project.update_document(name, title, self.project.get_documents_range(name), text=text)
             self.hub.programe_signal.emit(ProgrameAction.DocumentsOpen)
+    
+    # 페이지의 키워드를 페이지 제목을 sha256 암호화를 통해 겹치지 않게 만듬
+    def _encryption_page(self, text:str):
+        hash_object = hashlib.sha256()
+        hash_object.update(text.encode('utf-8'))
+        return hash_object.hexdigest()
 
     # =========================================================================
     # 캐릭터 생성 로직
@@ -296,7 +299,7 @@ class EMSW(QMainWindow):
         self.project._update_persona_field(name, 'tendency', tend_data, type_str)
 
         # 7. 신체 묘사
-        body_str, ok = QInputDialog.getText(self, 'body', '신체 묘사', '신체를 묘사해 주세요:')
+        body_str, ok = QInputDialog.getText(self, '신체 묘사', '신체를 묘사해 주세요:')
         if not ok: return False
         body_data, type_str = self._parse_input_string(body_str)
         self.project._update_persona_field(name, 'body', body_data, type_str)
@@ -373,10 +376,10 @@ class EMSW(QMainWindow):
     def append_chatting_view(self):
         main_chat_layout = MainChattingView(self.project)
         main_chat_layout.setNames(self.project.get_persona_names())
-        current_size = self._vertical_spliter.sizes()
+        current_size = self._horizontal_spliter.sizes()
         new_size = sum(current_size) // (len(current_size) + 1) if current_size else 300
-        self._vertical_spliter.addWidget(main_chat_layout)
-        self._vertical_spliter.setSizes([new_size] * self._vertical_spliter.count())
+        self._horizontal_spliter.addWidget(main_chat_layout)
+        self._horizontal_spliter.setSizes([new_size] * self._horizontal_spliter.count())
         self.update()
     """
         close event 오버라이드
@@ -424,8 +427,6 @@ class DocumentView(QWidget):
             if 'sample' != n:
                 pass
             item = self.make_group_tree(n)
-            print(n)
-
             self.model.appendRow(item)
         if self.model.columnCount() == 0:
             self.model.setRow(0, '없음')
@@ -434,8 +435,8 @@ class DocumentView(QWidget):
         try:
             data = index.parent().data()
             text = self.project.get_document_text(data, (index.row() + 1))
-            print(text)
             self.textWidget.setText(text)
+            GlobalWorld().add_documents(self.project.get_document_title(data, (index.row() + 1)), text)
         except:
             print("error!")
     # 그룹 하위의 문서를 등록하는 매서드
@@ -1023,11 +1024,11 @@ class ChattingView(QWidget):
         if self.setSelfBody:
             return 'setSelfBody', GlobalWorld().set_ai_persona_self_body, 1, "정의된 네 외모의 특징과 전체 모습을"
         elif self.setSelfPersonality:
-            return 'setSelfPersonality', GlobalWorld().project.set_ai_persona_self_personality, 2, "정의된 내용을 보고 네 성향을"
+            return 'setSelfPersonality', GlobalWorld().set_ai_persona_self_personality, 2, "정의된 내용을 보고 네 성향을"
         elif self.setSelfTendency:
-            return 'setSelfTendency', GlobalWorld().project.set_ai_persona_self_tendency, 3, "정의된 내용을 보고 네 성향을"
+            return 'setSelfTendency', GlobalWorld().set_ai_persona_self_tendency, 3, "정의된 내용을 보고 네 성향을"
         elif self.setSelfImage:
-            return 'setSelfImage', GlobalWorld().project.set_aI_persona_self_image, 4, "정의된 내용을 보고 네가 본 네 모습을"
+            return 'setSelfImage', GlobalWorld().set_aI_persona_self_image, 4, "정의된 내용을 보고 네가 본 네 모습을"
         return False
 
     def command(self, text: list):
@@ -1130,6 +1131,7 @@ class ChattingView(QWidget):
     def send_message(self):
         if self.type == 0:
             text = self.message_edit.text().strip()
+            self.add_message(text, is_me=True)
             if not text:
                 return
             self.send_ai_message(text, 0)
@@ -1222,3 +1224,4 @@ class ChattingView(QWidget):
         if hasattr(self, 'chat_thread') and self.chat_thread.isRunning():
             self.chat_thread.quit()
             self.chat_thread.wait() # 스레드가 완전히 꺼질 때까지 대기
+        super().closeEvent(event)
