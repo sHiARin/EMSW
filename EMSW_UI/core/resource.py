@@ -372,8 +372,7 @@ class ProjectConfig:
     def get_documents_range(self, name:str): return self.project_items['documents'][name]['range']
 
     # name에 key 값에 맞는 value를 반환
-    def get_document_title(self, name:str, i:int):
-        return self.project_items['documents'][name]['title'][i]
+    def get_document_title(self, name:str, i:int): return self.project_items['documents'][name]['title'][f"{i}"]
     def get_document_text(self, name:str, i:int):
         return self.project_items['documents'][name]['text'][i]
     def get_document_index(self, name:str, title:str):

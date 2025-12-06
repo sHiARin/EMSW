@@ -434,9 +434,16 @@ class DocumentView(QWidget):
     def _on_tree_clicked(self, index):
         try:
             data = index.parent().data()
-            text = self.project.get_document_text(data, (index.row() + 1))
-            self.textWidget.setText(text)
-            GlobalWorld().add_documents(self.project.get_document_title(data, (index.row() + 1)), text)
+            if data is None:
+                print('None')
+            else:
+                print(data)
+                print(type(data))
+                print(index.row() + 1)
+                text = self.project.get_document_text(data, str(index.row() + 1))
+                self.textWidget.setText(text)
+                GlobalWorld().add_documents(text)
+                print(text)
         except:
             print("error!")
     # 그룹 하위의 문서를 등록하는 매서드
@@ -1067,13 +1074,13 @@ class ChattingView(QWidget):
         cmd = text[0]
         args = text[1:]
         
-        if cmd == 'show':
+        if cmd == 'show' and self.type != 0:
             self._cmd_show(args)
-        elif cmd == 'set':
+        elif cmd == 'set' and self.type != 0:
             self._cmd_set(args)
-        elif cmd == 'help':
+        elif cmd == 'help' and self.type != 0:
             self._cmd_help(args)
-        elif cmd == 'exit':
+        elif cmd == 'exit' and self.type != 0:
             self.add_message('AI 설정을 종료합니다.', False)
         else:
             self.add_message("알 수 없는 명령어입니다. 'help'를 입력해보세요.", False)
