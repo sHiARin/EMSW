@@ -1054,7 +1054,6 @@ class ChattingView(QWidget):
             last_talk = GlobalWorld().get_last_talk()
             save_func(self.name(), last_talk)
             self.add_message(f"{prompt_topic} 설정을 완료하고 저장했습니다.", False)
-            self.closeEvent()
         else:
             # AI에게 추가 요청 전송
             user_input = " ".join(text)
