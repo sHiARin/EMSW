@@ -177,8 +177,11 @@ class EMSW(QMainWindow):
     def _open_project(self):
         file_path, _ = QFileDialog.getOpenFileName(self, "프로젝트 열기", "", "EMSW File(*.emsw)")
         if file_path:
-            directory = "/".join(file_path.split('/')[:-1])
+            directory = "/".join([t for t in file_path.split('/')[0:-1]])
+            if '/' not in directory:
+                directory = directory + '/'
             name = file_path.split('/')[-1]
+            print(directory, name)
             self.project.open_project(directory=directory, name=name)
             
             x, y = self.project.get_position()
@@ -865,9 +868,10 @@ class ChatController(QObject):
         self.worker.answer_ready.connect(self.on_answer_ready)
     @Slot(str)
     def on_answer_message(self, name:str, text:str, type:int, model_name:str="gpt-oss:20b", title:str = ''):
+        print(7)
         if 0 < type and type < 5 and len(text) == 0:
             self.worker.generate(name, '', type, model_name, title)
-        elif type == 0 and 0 < len(text):
+        elif 0 < len(text):
             self.worker.generate(name, text, type, model_name, title)
     @Slot(str)
     def on_answer_ready(self, ai_text):
@@ -876,12 +880,15 @@ class ChatController(QObject):
 class Ollama_Connector(QWidget):
     answer_ready = Signal(str)
     def generate(self, name:str, text:str, type:int, model_name:str, title:str=None):
+        print(8)
         try:
             print(f"Generating AI Response... Input: {text[:20]}...")
             GlobalWorld().init_prompt_data()
             if model_name is None:
                 GlobalWorld().get_llm('gpt-oss:20b', 0.7)
-            if len(text) > 0:
+            else:
+                GlobalWorld().get_llm(model_name, 0.7)
+            if 0 < len(text):
                 b = GlobalWorld().get_last_talk()
                 if b is not None  and len(b) >= 2:
                     GlobalWorld().add_prompt(b[0], b[1])
@@ -889,6 +896,7 @@ class Ollama_Connector(QWidget):
             response_text = GlobalWorld().call_ai(name, text, type, key=title)
             print(f"AI Response Generated: {response_text[:20]}...")
             self.answer_ready.emit(response_text)
+
             
         except Exception as e:
             print(f"AI Generation Error: {e}")
@@ -1083,6 +1091,7 @@ class ChattingView(QWidget):
 
     def _get_active_mode(self):
         """현재 활성화된 설정 모드 정보 반환"""
+        print(2)
         if self.setSelfBody:
             return 'setSelfBody', GlobalWorld().set_ai_persona_self_body, self.parents.project._update_persona_self_body, 1, "정의된 네 외모의 특징과 전체 모습을"
         elif self.setSelfPersonality:
@@ -1095,12 +1104,14 @@ class ChattingView(QWidget):
 
     def command(self, text: list):
         """사용자 입력 처리 메인"""
+        print(1)
         if not text:
             return
         active_mode = self._get_active_mode()
 
         # 1. 설정 모드일 때 처리
         if active_mode:
+            print(3)
             self._handle_active_mode(text, active_mode)
         # 2. 일반 대화 시의 처리
         else:
@@ -1108,6 +1119,7 @@ class ChattingView(QWidget):
 
     def _handle_active_mode(self, text: list, mode_info):
         """설정 모드 중의 로직 처리"""
+        print(4)
         flag_name, save_func, local_save, type_id, prompt_topic = mode_info
         
         if 'exit' in text:
@@ -1119,8 +1131,10 @@ class ChattingView(QWidget):
             self.add_message(f"{prompt_topic} 설정을 완료하고 저장했습니다.", False)
         else:
             # AI에게 추가 요청 전송
+            print(5)
             user_input = " ".join(text)
             prompt = f"{user_input}을(를) 포함하여 다시 {prompt_topic} 직접 정의하여 설명하라."
+            print(6)
             self.request_ai_signal.emit(self.name(), prompt, type_id, "gpt-oss:20b", None)
 
     def _handle_general_command(self, text: list):
@@ -1138,7 +1152,6 @@ class ChattingView(QWidget):
             self.add_message('AI 설정을 종료합니다.', False)
         elif self.type != 0:
             self.add_message("알 수 없는 명령어입니다. 'help'를 입력해보세요.", False)
-
     # ----- 명령어 상세 구현 -----
     def _cmd_show(self, args):
         print(args)
@@ -1223,8 +1236,10 @@ class ChattingView(QWidget):
             print(title)
             self.request_ai_signal.emit(self.name(), msg, t, model, title)
         # 유효한 타입인 경우 시그널 전송
-        elif 0 < t <= 4:
-            self.request_ai_signal.emit(self.name(), msg, t, None, None)
+        elif 0 < t <= 4 and len(msg) == 0:
+            self.request_ai_signal.emit(self.name(), msg, t, model, title)
+        elif 0 < len(msg):
+            self.request_ai_signal.emit(self.name(), msg, t, model, title)
         else:
             self.add_message('잘못된 입력입니다.', False)
 
@@ -1261,7 +1276,7 @@ class ChattingView(QWidget):
         # 사용자 메시지일 경우 명령어 처리 (중요: 재귀 호출 주의)
         # self.command 호출은 외부에서 add_message를 호출할 때만 발생해야 함.
         if is_me:
-             self.command(text.split(' '))
+            self.command(text.split(' '))
         
         QTimer.singleShot(0, self.scroll_to_bottom)
 
