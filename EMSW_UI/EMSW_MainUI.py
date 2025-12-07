@@ -1054,7 +1054,7 @@ class ChattingView(QWidget):
             '이름': 'name', '성별': 'sex', '나이': 'age', '외형': 'body',
             '성격': 'personality', '성향': 'tendency', '취미': 'hobby',
             '자기성격': 'self_personality', '자기성향': 'self_tendency',
-            '자기외모': 'self_body', '자아': 'self_image', '자기모습': 'self_image'
+            '자기외모': 'self_body', '자기모습': 'self_body', '자아': 'self_image'
         }
 
         # 2. 'show' 명령어용 데이터 Getter
