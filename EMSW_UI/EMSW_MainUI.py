@@ -1121,7 +1121,7 @@ class ChattingView(QWidget):
             # AI에게 추가 요청 전송
             user_input = " ".join(text)
             prompt = f"{user_input}을(를) 포함하여 다시 {prompt_topic} 직접 정의하여 설명하라."
-            self.request_ai_signal.emit(self.name(), prompt, type_id)
+            self.request_ai_signal.emit(self.name(), prompt, type_id, "gpt-oss:20b", None)
 
     def _handle_general_command(self, text: list):
         """show, set, help 등 일반 명령어 처리"""
