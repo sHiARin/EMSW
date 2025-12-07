@@ -31,8 +31,20 @@ IP를 가지고 개발하는 저작자들에게는 가장 중요한 것이 바�
 <br>
 <br>
 ```bash
+git clone https://github.com/sHiARin/EMSW.git
+cd ./EMSW
 pip install -r requirements.txt
 ```
 <br>
 <br>
 
+<br>
+'''bash
+./EMSW/Scripts/activate
+python ./main.py
+'''
+<br>
+
+
++++ 기존의 기획서와는 이후 개발 중 예기치 못한 오류가 발생하여 사실상 대부분의 개발은 하지 못한 상황.
++++ ... 예측 실패! 와아아... (웃음)
