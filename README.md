@@ -38,11 +38,11 @@ pip install -r requirements.txt
 <br>
 <br>
 <br>
-<br>
 ```bash
 ./EMSW/Scripts/activate
 python ./main.py
 ```
+<br>
 <br>
 requirements.txt로 필요한 패키지를 설치해아 합니다.<br>
 hwp-helper와 pyside6, langchain과 ollama를 사용했습니다.<br>
