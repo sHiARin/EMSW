@@ -49,7 +49,7 @@ ollama 로컬 LLM 서버는 별도로 설치해주시기 바랍니다.
 
 기본 페이지<br>
 <br>
-![image](./image/1.png)
+![image](./Image/1.png)
 <br>
 <br>
 
