@@ -22,3 +22,17 @@ IP를 가지고 개발하는 저작자들에게는 가장 중요한 것이 바�
 상세 기획은 [기획서](./ProjectProposal.md) 참고하시오.
 
 <hr>
+<hr>
+
+<h2> How To Use </h2>
+
+전제 조건 : Ollama를 인스톨해야 합니다.
+수정 필요 : 테스트 컴퓨터에서는 gpt-oss:20b로 실행하였으며, 필요시 EMSW_MainUI.py의 ChatController 클래스에서 generate의 끝에 model_name="바꿀 model name"을 추가해주면 됩니다.
+<br>
+<br>
+```bash
+pip install -r requirements.txt
+```
+<br>
+<br>
+

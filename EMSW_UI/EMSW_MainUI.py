@@ -399,7 +399,7 @@ class EMSW(QMainWindow):
         return True
     
     def append_chatting_view(self):
-        main_chat_layout = MainChattingView(self.project)
+        main_chat_layout = MainChattingView(self, self.project)
         main_chat_layout.setNames(self.project.get_persona_names())
         current_size = self._horizontal_spliter.sizes()
         new_size = sum(current_size) // (len(current_size) + 1) if current_size else 300
@@ -427,6 +427,7 @@ class DocumentView(QWidget):
     # 열린 문서를 관리하는 뷰
     def __init__(self, parent, project:ProjectConfig):
         super().__init__(parent=parent)
+        self.parents = parent
         self.project = project
         self._names = None
         self._selected_name = None
@@ -470,16 +471,17 @@ class DocumentView(QWidget):
     def _on_tree_clicked(self, index):
         try:
             data = index.parent().data()
+            pos = index.column() + 1
             if data is None:
                 print('None')
             else:
                 text = self.project.get_document_text(data, index.column() + 1)
-                self._selected_name = [data, str(index.row() + 1)]
                 self.textWidget.setText(text)
-                if GlobalWorld().add_documents(text) == None:
-                    pass
-        except:
-            print("error!")
+                title = self.project.get_document_title(data, pos)
+                GlobalWorld().add_documents(title, text)
+                self.project.open_document_file_name = title
+        except Exception as e:
+            print(f"error : {type(e)}")
             pass
     # 그룹 하위의 문서를 등록하는 매서드
     def make_group_tree(self, name:str):
@@ -524,8 +526,9 @@ class MainChattingView(QWidget):
     # ollama와 연결된 AI Chatting Widget
     name_trigger = Signal(str)
     name = Signal(str)
-    def __init__(self, project:ProgrameAction):
+    def __init__(self, parent, project:ProgrameAction):
         super().__init__()
+        self.parents = parent
         self.project = project
         self._names = self.project.get_persona_names()
         self.__init_ollama_chat()
@@ -537,7 +540,7 @@ class MainChattingView(QWidget):
     def __init_ollama_chat(self):
         """AI 통신 스레드 및 컨트롤러 초기화"""
         self.chat_thread = QThread(self)
-        self.chatController = ChatController(self)
+        self.chatController = ChatController()
         self.chatController.moveToThread(self.chat_thread)
     def __init_ui__(self):
         main_layout = QHBoxLayout(self)
@@ -855,33 +858,41 @@ class PersonaSettingWindow(QWidget):
 class ChatController(QObject):
     ai_message = Signal(str)
 
-    def __init__(self, parent=None):
+    def __init__(self):
         super().__init__()
         self.worker = Ollama_Connector()
 
         self.worker.answer_ready.connect(self.on_answer_ready)
     @Slot(str)
-    def on_answer_message(self, name:str, text:str, type:int):
+    def on_answer_message(self, name:str, text:str, type:int, model_name:str="gpt-oss:20b", title:str = ''):
         if 0 < type and type < 5 and len(text) == 0:
-            self.worker.generate(name, '', type)
-        elif 0 < len(text):
-            self.worker.generate(name, text, type)
+            self.worker.generate(name, '', type, model_name, title)
+        elif type == 0 and 0 < len(text):
+            self.worker.generate(name, text, type, model_name, title)
     @Slot(str)
     def on_answer_ready(self, ai_text):
         self.ai_message.emit(ai_text)
 
 class Ollama_Connector(QWidget):
     answer_ready = Signal(str)
+    def generate(self, name:str, text:str, type:int, model_name:str, title:str=None):
+        try:
+            print(f"Generating AI Response... Input: {text[:20]}...")
+            GlobalWorld().init_prompt_data()
+            if model_name is None:
+                GlobalWorld().get_llm('gpt-oss:20b', 0.7)
+            if len(text) > 0:
+                b = GlobalWorld().get_last_talk()
+                if b is not None  and len(b) >= 2:
+                    GlobalWorld().add_prompt(b[0], b[1])
 
-    def generate(self, name:str, text:str, type:int):
-        GlobalWorld().init_prompt_data()
-        GlobalWorld().get_llm('gpt-oss:20b', 0.7)
-        if 0 < len(text):
-            b = GlobalWorld().get_last_talk()
-            GlobalWorld().add_prompt(b[0], b[1])
-        text = GlobalWorld().call_ai(name, text, type)
-        self.answer_ready.emit(text)
-
+            response_text = GlobalWorld().call_ai(name, text, type, key=title)
+            print(f"AI Response Generated: {response_text[:20]}...")
+            self.answer_ready.emit(response_text)
+            
+        except Exception as e:
+            print(f"AI Generation Error: {e}")
+            self.answer_ready.emit(f"오류가 발생했습니다: {str(e)}")
 class EgoSettup(QMainWindow):
     def __init__(self, project:ProjectConfig, name:str):
         super().__init__()
@@ -916,7 +927,7 @@ class EgoSettup(QMainWindow):
 
 class ChattingView(QWidget):
     # AI 요청 시그널 (이름, 메시지, 타입)
-    request_ai_signal = Signal(str, str, int)
+    request_ai_signal = Signal(str, str, int, object, object)
 
     # type을 받아서 1이면 초기화(즉 페르소나 설정), 0이면 기본 채팅 모드로 시작한다.
     def __init__(self, parent, type:int):
@@ -936,7 +947,7 @@ class ChattingView(QWidget):
     def __init_ollama_chat(self):
         """AI 통신 스레드 및 컨트롤러 초기화"""
         self.chat_thread = QThread(self)
-        self.chatController = ChatController(self)
+        self.chatController = ChatController()
         self.chatController.moveToThread(self.chat_thread)
         
         # 시그널 연결
@@ -1125,7 +1136,7 @@ class ChattingView(QWidget):
             self._cmd_help(args)
         elif cmd == 'exit' and self.type != 0:
             self.add_message('AI 설정을 종료합니다.', False)
-        else:
+        elif self.type != 0:
             self.add_message("알 수 없는 명령어입니다. 'help'를 입력해보세요.", False)
 
     # ----- 명령어 상세 구현 -----
@@ -1185,9 +1196,10 @@ class ChattingView(QWidget):
         if self.type == 0:
             text = self.message_edit.text().strip()
             self.add_message(text, is_me=True)
+            print(GlobalWorld().get_document_num())
             if not text:
                 return
-            self.send_ai_message(text, 0)
+            self.send_ai_message(text, 0, title=self.parents.project.open_document_file_name)
             self.message_edit.clear()
         elif self.type == 1:
             text = self.message_edit.text().strip()
@@ -1199,17 +1211,20 @@ class ChattingView(QWidget):
             QMessageBox.critical(self, '오류', '알 수 없는 오류가 발생했습니다.', QMessageBox.StandardButton.Ok)
             exit(0)
 
-    def send_ai_message(self, msg: str, t: int = 0):
+    def send_ai_message(self, msg: str, t:int = 0, model:str="gpt-oss:20b", title:str = ''):
         """AI에게 메시지 전송 및 모드 진입 설정"""
         # 모드 플래그 설정
         if t == 1: self.setSelfBody = True
         elif t == 2: self.setSelfPersonality = True
         elif t == 3: self.setSelfTendency = True
         elif t == 4: self.setSelfImage = True
-        
+        print("send AI Message")
+        if 0 == t:
+            print(title)
+            self.request_ai_signal.emit(self.name(), msg, t, model, title)
         # 유효한 타입인 경우 시그널 전송
-        if 0 <= t <= 4:
-            self.request_ai_signal.emit(self.name(), msg, t)
+        elif 0 < t <= 4:
+            self.request_ai_signal.emit(self.name(), msg, t, None, None)
         else:
             self.add_message('잘못된 입력입니다.', False)
 
@@ -1262,18 +1277,18 @@ class ChattingView(QWidget):
     def closeEvent(self, event):
         """창이 닫힐 때 데이터 저장 및 스레드 정리"""
         
-        # 1. 진행 중인 AI 작업이 있다면 데이터 저장/마무리
+        # 진행 중인 AI 작업이 있다면 데이터 저장/마무리
         if hasattr(self, 'chatController'):
             # 만약 컨트롤러에 별도 저장 로직이 있다면 호출
             # self.chatController.save_context() 
             pass
 
-        # 2. ProjectConfig를 통해 파일로 최종 저장 (확실하게 디스크에 쓰기)
+        # ProjectConfig를 통해 파일로 최종 저장 (확실하게 디스크에 쓰기)
         if self.parent and hasattr(self.parent, 'project'):
             print(f"[{self.__name}] 페르소나 데이터 저장 중...")
             self.project.save_project()
 
-        # 3. 스레드 안전하게 종료 (매우 중요: 안 하면 16ms 에러나 Segfault 발생 가능)
+        # 스레드 안전하게 종료 (매우 중요: 안 하면 16ms 에러나 Segfault 발생 가능)
         if hasattr(self, 'chat_thread') and self.chat_thread.isRunning():
             self.chat_thread.quit()
             self.chat_thread.wait() # 스레드가 완전히 꺼질 때까지 대기

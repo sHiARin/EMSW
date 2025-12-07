@@ -41,6 +41,7 @@ class GlobalSignalHub(QObject):
             GlobalSignalHub._instance = GlobalSignalHub()
         return GlobalSignalHub._instance
 
+
 """
     프로젝트 파일을 읽어오는 클래스입니다.
     프로젝트를 생성할때 최초 생성되고, 프로젝트 내의 정보를 json으로 읽어들입니다.
@@ -90,6 +91,7 @@ class ProjectConfig:
         self.tz = pytz.timezone(tz_str)
         self.project_dir = Path('')
         self.project_name = ''
+        self.open_document_file_name = ''
         
         # 데이터 초기화 (Deep Copy로 참조 문제 방지)
         self.project_items = copy.deepcopy(self.DEFAULT_PROJECT_ITEMS)
@@ -186,6 +188,22 @@ class ProjectConfig:
         print(self.metadata)
         print(self.project_items)
 
+        # 최초 프로젝트 Open 시 GlobalWorld 호출
+        self.initialize_ai_context()
+
+    # GlobalWorld에서 데이터를 로드하여 호출 대기 상태로 놓는다.
+    # GlobalWorld에서 데이터를 불러와 호출 대기상태에 놓았을 때, 저장된 AI 데이터를 '로드'한다.
+    # AI 호출 없이 Documents를 불러왔을 때, Documents add를 별도로 분리하여 AI에 올릴 데이터를 대기하는 상태로 놓는다. (대화 시에만 호출함)
+    def initialize_ai_context(self):
+        GlobalWorld().init_prompt_data()
+        for n in self.get_persona_names():
+            if n == 'sample':
+                pass
+            else:
+                GlobalWorld().create_ai_memory(n)
+                GlobalWorld().set_persona_data(n, self.get_persona_dict()[n])
+                GlobalWorld().get_llm('gpt-oss:20b', 0.7)
+                GlobalWorld().create_documents_memory()
     # 문서 파일을 추가했을 때 문서 파일의 데이터를 추가하면서 수행할 작업
     def open_document_files(self, name:str, title:str, text:str):
         file = copy.deepcopy(self.DEFAULT_PROJECT_ITEMS['documents']['sample'])
@@ -533,6 +551,7 @@ class GlobalWorld:
         self.ai_memory: Dict[str, Dict[str, Any]] = {}
         self.prompt_history: List[tuple] = []
         self.llm = None
+        self.documents = None
         self._initialized = True
 
     # =========================================================================
@@ -593,7 +612,7 @@ class GlobalWorld:
     def add_prompt(self, role: str, message: str) -> bool:
         """프롬프트 히스토리에 메시지를 추가합니다."""
         if self.prompt_history is None:
-             self.init_prompt_data()
+            self.init_prompt_data()
         self.prompt_history.append((role, message))
         return True
     
@@ -601,16 +620,16 @@ class GlobalWorld:
         """가장 최근 대화 내용을 반환합니다."""
         return self.prompt_history[-1] if self.prompt_history else None
 
-    def call_ai(self, name: str, input_msg: str, mode_value: int):
+    def call_ai(self, name: str, input_msg: str, mode_value: int, key:str = ''):
         """
         AI 모델을 호출하여 응답을 생성합니다.
         mode_value: 0=Chat, 1=Body, 2=Personality, 3=Tendency, 4=Image
         """
-        # 1. AI 존재 확인
+        # AI 존재 확인
         if name not in self.ai_memory:
             return None
 
-        # 2. 페르소나(시스템 프롬프트) 구성
+        # 페르소나(시스템 프롬프트) 구성
         ai_data = self.ai_memory[name]
         persona_text = f"Your name is {name}.\n"
         
@@ -621,27 +640,45 @@ class GlobalWorld:
         persona_text += "You must strictly maintain this persona and tone throughout the conversation."
         system_message = ("system", persona_text)
 
-        # 3. 질문 템플릿 선택 (Query Map)
+        # 질문 템플릿 선택 (Query Map)
         query_map = {
             1: "정의된 네 외모를 특징과 전체 모습을 직접 정의하여 설명하라",
             2: "정의된 내용을 보고 네 성격을 직접 정의하여 설명하라.",
             3: "정의된 내용을 보고 네 성향을 직접 정의하여 설명하라.",
             4: "정의된 내용을 보고 네가 본 네 모습을 직접 정의하여 설명하라."
         }
+
+        documents_prompt = []
+        # type이 0이고 key가 있는 경우, 그 내용을 Prompt에 끼워 넣는다.
+        try:
+            if mode_value == 0 and key != None:
+                for d in self.documents:
+                    print(d[0] == key)
+                    if key != d[0]:
+                        continue
+                    elif key == d[0]:
+                        documents_prompt.append({'role' : 'user', 'content' : f'user가 쓴 소설 제목={d[0]}\n 소설 내용={d[1]}'})
+                        break
+                print(documents_prompt)
+                print(self.documents[1][0] == key)
+        except Exception as e:
+            print(e.args)
         
         # 입력 메시지가 있으면 우선 사용, 없으면 모드에 따른 쿼리 사용
         target_query = input_msg if input_msg else query_map.get(mode_value, "")
-        
         if not target_query:
             return None
 
-        # 4. 프롬프트 메시지 조립
+        # 프롬프트 메시지 조립
         # [System Persona] + [History] + [Current Input]
         final_messages = [system_message]
         final_messages.extend(copy.deepcopy(self.prompt_history))
+        if documents_prompt is not None:
+            final_messages.extend(copy.deepcopy(documents_prompt))
+            final_messages.extend(target_query)
         final_messages.append(('user', '{input}'))
 
-        # 5. 실행
+        # 실행
         if self.llm is None:
             # LLM이 초기화되지 않았으면 기본값으로 초기화 시도 (혹은 에러 처리)
             return None
@@ -655,24 +692,41 @@ class GlobalWorld:
     # =========================================================================
     # Memory & Persona Management
     # =========================================================================
-    def create_ai_memory(self, name: str) -> bool:
+    def create_ai_memory(self, name: str=None) -> bool:
         """새로운 AI 메모리 공간을 생성합니다."""
+        if name is None:
+            return False
         if name not in self.ai_memory:
             self.ai_memory[name] = {}
             return True
         return True # 이미 존재해도 성공으로 간주
     
+    def create_documents_memory(self, name:str=None, text:str=None) ->bool:
+        if self.documents is None:
+            if name is None and text is None:
+                self.documents = None
+            self.documents = [[name, text]]
+
     def add_documents(self, name:str, text:str):
         """
             문서 파일을 열었을 때, AI가 읽을 문서를 설정
             여기서, 문서 파일은 기본적으로 Chatting의 형식으로 그것을 읽고 반응을 내보인다.
-            테스트에 활용되는 파일은 '습작으로 쓰던 좀비 아포칼립스 물'.
             테스트로 쓴 파일은 1화까지만 사용.
             Prompt에 삽입되며, '어떤지 묻는'식으로 활용한다.
         """
-        if self.prompt == None:
-            return None
-        self.add_prompt("user", f"제목 : {name}\n내용 : {text}")
+        if self.documents is None:
+            self.create_documents_memory(name, text)
+        else:
+            self.documents.append([name, text])
+    
+    def get_document_num(self):
+        """
+            문서파일이 있는지 확인한다.
+        """
+        if self.documents is None:
+            return 0
+        else:
+            return len(self.documents)
 
     def get_ai_names(self):
         """메모리에 등록된 AI 이름 목록을 반환합니다."""
@@ -687,7 +741,7 @@ class GlobalWorld:
         딕셔너리 형태의 페르소나 데이터를 한 번에 설정하고 필수 키를 검증합니다.
         """
         if name not in self.ai_memory:
-            self.create_ai_memory(name)
+            GlobalWorld.create_ai_memory(name)
             
         # 데이터 복사 및 설정
         target_memory = self.ai_memory[name]
