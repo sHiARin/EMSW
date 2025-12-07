@@ -38,6 +38,10 @@ pip install -r requirements.txt
 <br>
 <br>
 
+requirements.txt로 프로젝트를 설치하여, 필요한 패키지를 설치해아 합니다.
+
+hwp-helper와 pyside6, langchain과 ollama를 사용했습니다. ollama는 별도로 설치해주시기 바랍니다.
+
 <br>
 
 ```bash
@@ -52,6 +56,8 @@ python ./main.py
 <br>
 <br>
 <br>
+
+
 
 +++ 기존의 기획서와는 이후 개발 중 예기치 못한 오류가 발생하여 사실상 대부분의 개발은 하지 못한 상황.<br>
 +++ ... 예측 실패! 와아아... (웃음)<br>
