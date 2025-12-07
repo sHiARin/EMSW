@@ -30,7 +30,7 @@ IP를 가지고 개발하는 저작자들에게는 가장 중요한 것이 바�
 수정 필요 : 테스트 컴퓨터에서는 gpt-oss:20b로 실행하였으며, 필요시 EMSW_MainUI.py의 ChatController 클래스에서 generate의 끝에 model_name="바꿀 model name"을 추가해주면 됩니다.
 <br>
 <br>
-```bash
+```
 git clone https://github.com/sHiARin/EMSW.git
 cd ./EMSW
 pip install -r requirements.txt
@@ -38,7 +38,8 @@ pip install -r requirements.txt
 <br>
 <br>
 <br>
-```bash
+
+```
 ./EMSW/Scripts/activate
 python ./main.py
 ```
@@ -49,9 +50,15 @@ hwp-helper와 pyside6, langchain과 ollama를 사용했습니다.<br>
 ollama 로컬 LLM 서버는 별도로 설치해주시기 바랍니다.<br>
 <br>
 <br>
+<hr>
 이후 사용법은 여기를 참고해 주세요.<br>
-[AI 설정법](./HowToUsePrograme/HowToUse_AIEditting.md)<br>
-[문서 편집 방법](./HowToUsePrograme/HowToEditingDocument.md)<br>
+<hr>
+[AI 설정법](./HowToUsePrograme/HowToUse_AIEditting.md)
+<br>
+<br>
+[문서 편집 방법](./HowToUsePrograme/HowToEditingDocument.md)
+<hr>
+<br>
 <br>
 <br>
 <br>
