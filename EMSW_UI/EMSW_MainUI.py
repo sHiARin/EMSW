@@ -1,16 +1,12 @@
 from PySide6.QtWidgets import (QMainWindow, QWidget, QFileDialog,
                                QVBoxLayout, QHBoxLayout, QPushButton,
                                QLabel, QLineEdit, QMessageBox,
-                               QDialog, QAbstractItemView, QMenu,
-                               QScrollArea, QCheckBox, QInputDialog,
+                               QDialog, QAbstractItemView,
+                               QScrollArea, QInputDialog,
                                QTableWidget, QFrame, QHeaderView,
                                QTableWidgetItem, QListWidget,
-                               QSplitter, QTreeView, QTextEdit,
-                               QTextBrowser)
-from PySide6.QtGui import (QKeyEvent, QAction, QStandardItemModel,
-                           QStandardItem, QPalette, QColor,
-                           QGuiApplication, QFont, QTextItem, 
-                           QFontMetrics)
+                               QSplitter, QTreeView, QTextEdit)
+from PySide6.QtGui import (QAction, QStandardItemModel, QStandardItem, QFont)
 from PySide6.QtCore import (Qt, Signal, QTimer,
                             QModelIndex, QObject, QThread,
                             Slot, QThread)
@@ -33,6 +29,7 @@ class EMSW(QMainWindow):
         self.project_open = False
         self.dir = None
         self.documentOpened = False
+        self.documentEdit = False
         
         # 시그널 허브 설정
         self.hub = GlobalSignalHub.instance()
@@ -49,6 +46,8 @@ class EMSW(QMainWindow):
             ProgrameAction.OpenProjectSuccess: self._on_project_opened,
             ProgrameAction.SuccessBaigicSetupAIPersona: self._setup_self_image,
             ProgrameAction.DocumentsOpen: self._document_open_file,
+            ProgrameAction.DocumentsEdit: self._document_set_mode,
+            ProgrameAction.DocumentsDelete: self._document_delete,
         }
 
         self.error_map = {
@@ -138,9 +137,8 @@ class EMSW(QMainWindow):
     def _create_menus(self):
         mb = self.menuBar()
         self._setup_file_menu(mb.addMenu("파일"))
-        mb.addMenu("편집") # 기능 구현 시 추가
+        self._edit_menu(mb.addMenu("편집"))
         self._setup_character_menu(mb.addMenu("캐릭터"))
-        self._setup_view_menu(mb.addMenu("뷰"))
 
     def _add_action(self, menu, text, slot):
         """메뉴 액션 추가 헬퍼 함수"""
@@ -155,11 +153,18 @@ class EMSW(QMainWindow):
         menu.addSeparator()
         document_group_menu = menu.addMenu("문서")
         self._add_action(document_group_menu, "HWP", self._open_files)
+    
+    def _edit_menu(self, menu):
+        self._add_action(menu, "도큐멘트 편집", self.set_document_edit)
+        self._add_action(menu, "도큐멘트 삭제", self._document_delete)
+        menu.addSeparator()
+        self._add_action(menu, "AI 챗 뷰 추가", self._add_chatting_view)
+        self._add_action(menu, "wiki 뷰 추가", self._add_wiki_view)
+
     def _setup_character_menu(self, menu):
         self._add_action(menu, "새 캐릭터", self._create_persona)
         self._add_action(menu, "캐릭터 편집하기", self._edit_persona)
-    def _setup_view_menu(self, menu):
-        self._add_action(menu, "AI 챗 뷰 추가", self._add_chatting_view)
+
 
     # =========================================================================
     # 프로젝트 및 파일 관리
@@ -240,6 +245,26 @@ class EMSW(QMainWindow):
         hash_object.update(text.encode('utf-8'))
         return hash_object.hexdigest()
 
+    # =========================================================================
+    # 레이아웃 편집 로직
+    # =========================================================================
+    def set_document_edit(self):
+        self.documentEdit = not self.documentEdit
+        self.hub.programe_signal.emit(ProgrameAction.DocumentsEdit)
+    def _document_set_mode(self):
+        """Layout 편집 로직, 편집이 가능한 경우에는 자동 저장을 하지 않으며, 편집 가능이 꺼졌을 경우에는 자동 저장이 된다."""
+        if self.documentEdit:
+            QMessageBox.information(self, "알림", "도큐멘트가 편집 가능하도록 바뀌었습니다.")
+            self.documentView.textWidget.setReadOnly(False)
+        else:
+            QMessageBox.information(self, "알림", "도큐멘트가 편집할 수 없게 바뀌었습니다.")
+            self.documentView.saveText()
+            self.documentView.textWidget.setReadOnly(True)
+    def _document_delete(self):
+        n = self.documentView.name()
+        p = self.documentView.title_pos()
+        self.project.delete_document_name_pos(n, p)
+        self.documentView.delete_item()
     # =========================================================================
     # 캐릭터 생성 로직
     # =========================================================================
@@ -381,6 +406,11 @@ class EMSW(QMainWindow):
         self._horizontal_spliter.addWidget(main_chat_layout)
         self._horizontal_spliter.setSizes([new_size] * self._horizontal_spliter.count())
         self.update()
+    
+    def _add_wiki_view(self):
+        pass
+    
+    
     """
         close event 오버라이드
         최종 체크 (자동 저장)
@@ -392,12 +422,14 @@ class EMSW(QMainWindow):
             pass
         super().closeEvent(event)
 
+
 class DocumentView(QWidget):
     # 열린 문서를 관리하는 뷰
     def __init__(self, parent, project:ProjectConfig):
         super().__init__(parent=parent)
         self.project = project
         self._names = None
+        self._selected_name = None
         self.treeView = QTreeView()
         
         self.model = QStandardItemModel()
@@ -419,6 +451,10 @@ class DocumentView(QWidget):
         self.make_trees()
     def names(self):
         return self._names
+    def name(self):
+        return self._selected_name[0]
+    def title_pos(self):
+        return self._selected_name[1]
     # tree를 만드는 메서드
     def make_trees(self):
         # 중복 방지
@@ -437,15 +473,14 @@ class DocumentView(QWidget):
             if data is None:
                 print('None')
             else:
-                print(data)
-                print(type(data))
-                print(index.row() + 1)
-                text = self.project.get_document_text(data, str(index.row() + 1))
+                text = self.project.get_document_text(data, index.column() + 1)
+                self._selected_name = [data, str(index.row() + 1)]
                 self.textWidget.setText(text)
-                GlobalWorld().add_documents(text)
-                print(text)
+                if GlobalWorld().add_documents(text) == None:
+                    pass
         except:
             print("error!")
+            pass
     # 그룹 하위의 문서를 등록하는 매서드
     def make_group_tree(self, name:str):
         item = QStandardItem(name)
@@ -453,9 +488,17 @@ class DocumentView(QWidget):
             if i == 0:
                 pass
             else:
-               t = QStandardItem(self.project.get_document_title(name, i))
-               item.appendRow(t)
+                print(name, i)
+                t = QStandardItem(self.project.get_document_title(name, i))
+                item.appendRow(t)
         return item
+    # 편집된 텍스트를 저장
+    def saveText(self):
+        if self._selected_name is not None:
+            self.project.update_document_text(self._selected_name[0], self._selected_name[1], self.textWidget.toPlainText())
+    # 삭제 작업 시 treeView에 접근하여 값을 갱신
+    def delete_item(self):
+        self.make_trees()
     def __init_ui__(self):
         main_layout = QVBoxLayout()
         main_layout.setContentsMargins(0, 0, 0, 0)
@@ -546,8 +589,8 @@ class MainChattingView(QWidget):
         if current:
             self.chatpanel.set_name(current.text())
 
-# persona의 세부 사항을 설정하고 편집하는 동작을 담당하는 위젯
 class PersonaSettingWindow(QWidget):
+    """ persona의 세부 사항을 설정하고 편집하는 동작을 담당하는 위젯"""
     def __init__(self, parent, project):
         super().__init__()
         self.edit_cell = False

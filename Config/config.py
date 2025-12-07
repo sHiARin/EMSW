@@ -175,6 +175,10 @@ class ProgrameAction(Enum):
     SendMessageSuccess = 0xfff053
     # Documents가 열렸습니다.
     DocumentsOpen = 0xfff054
+    # Documents를 편집합니다.
+    DocumentsEdit = 0xfff055
+    # Documents를 삭제합니다.
+    DocumentsDelete = 0xfff056
 
 EVENT_MAPPING = {
     ProgrameAction.ProgrameStart: "ProgrameAction",

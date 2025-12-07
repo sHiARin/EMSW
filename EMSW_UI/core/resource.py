@@ -287,7 +287,8 @@ class ProjectConfig:
         self.project_items['documents'][name]['range'] += 1
         self.project_items['documents'][name]['index']['title'] = range + 1
         self.project_items['documents'][name]['text'][range + 1] = text
-
+    def update_document_text(self, name, range:int, text:str):
+        self.project_items['documents'][name]['text'][range] = text
     # --- wiki update ---
     # section에 keyword를 추가하기
     def update_keywords(self, keyword:str, value:str):
@@ -370,14 +371,37 @@ class ProjectConfig:
     def get_documents_title(self, name:str): return self.project_items['documents'][name]['title']
     def get_documents_text(self, name:str): return self.project_items['documents'][name]['text']
     def get_documents_range(self, name:str): return self.project_items['documents'][name]['range']
-
     # name에 key 값에 맞는 value를 반환
-    def get_document_title(self, name:str, i:int): return self.project_items['documents'][name]['title'][f"{i}"]
+    def get_document_title(self, name:str, i:int):
+        if type(list(self.project_items['documents'][name]['title'].keys())[0]) == str:
+            return self.project_items['documents'][name]['title'][f"{i}"]
+        else:
+            return self.project_items['documents'][name]['title'][i]
     def get_document_text(self, name:str, i:int):
-        return self.project_items['documents'][name]['text'][i]
+        if type(list(self.project_items['documents'][name]['title'].keys())[0]) == int:
+            return self.project_items['documents'][name]['text'][i]
+        else:
+            return self.project_items['documents'][name]['text'][f'{i}']
     def get_document_index(self, name:str, title:str):
         return self.project_items['documents'][name]['index'][title]
-    
+    # document에 name과 title의 pos로 값을 삭제
+    def delete_document_name_pos(self, name:str, title_pos:int):
+        doc_data = self.project_items['documents'][name]
+
+        current_range = doc_data['range']
+
+        if current_range < title_pos or title_pos < 0:
+            return
+
+        del self.project_items['documents'][name]['title'][title_pos]
+
+        for i in range(title_pos + 1, current_range + 1):
+            prev_index = i -1
+            if i in doc_data['title']:
+                doc_data['title'][prev_index] = doc_data['title'][i]
+                del doc_data['title'][i]
+        
+
     # --- wiki Getters ---
     # wiki의 section의 keyword를 반환
     def get_keywords(self): return self.project_items['wiki']['section'].keys()
@@ -646,8 +670,9 @@ class GlobalWorld:
             테스트로 쓴 파일은 1화까지만 사용.
             Prompt에 삽입되며, '어떤지 묻는'식으로 활용한다.
         """
+        if self.prompt == None:
+            return None
         self.add_prompt("user", f"제목 : {name}\n내용 : {text}")
-        print(self.prompt_history)
 
     def get_ai_names(self):
         """메모리에 등록된 AI 이름 목록을 반환합니다."""
