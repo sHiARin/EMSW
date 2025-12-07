@@ -39,12 +39,19 @@ pip install -r requirements.txt
 <br>
 
 <br>
-'''bash
+```bash
 ./EMSW/Scripts/activate
 python ./main.py
-'''
+```
 <br>
-
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
 
 +++ 기존의 기획서와는 이후 개발 중 예기치 못한 오류가 발생하여 사실상 대부분의 개발은 하지 못한 상황.
 +++ ... 예측 실패! 와아아... (웃음)
++++ 기말고사 끝난 뒤에 계속 업데이트 해야 겠습니다.
