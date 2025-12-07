@@ -73,21 +73,21 @@ Wiki View 추가 (구현 안됨)<br>
 <br>
 캐릭터 매뉴는 캐릭터 생성과 편집 윈도우가 있습니다.<br>
 <br>
-![image](./Image/이름 추가.png)<br>
+![image](./Image/2.png)<br>
 <br>
 이름을 기록합니다.<br>
 <br>
-![image](./Image/나이 추가를 위한 뷰.png)<br>
+![image](./Image/3.png)<br>
 <br>
 나이를 입력하는 창으로 넘어갑니다.<br>
 <br>
-![image](./Image/별 설정을 위한 리스트 박스.png)<br>
+![image](./Image/4.png)<br>
 <br>
 성별을 정하는 창으로 넘어갑니다.<br>
 <br>
 이후, 취미나 성격, 성향 등을 입력하고 나면 종료됩니다. 또한, 이때 '추가하지 않고 나가서도' 캐릭터 편집 매뉴에서 설정할 수 있습니다.<br>
 <br>
-![image](./Image/편집 탭에서 편집.png)<br>
+![image](./Image/5.png)<br>
 <br>
 초기에는 작은 화면으로 이루어져 있습니다만, 필요하다면 크기를 마음대로 조절하시면 됩니다.<br>
 <br>
