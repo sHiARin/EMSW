@@ -38,9 +38,16 @@ pip install -r requirements.txt
 <br>
 <br>
 
-requirements.txt로 프로젝트를 설치하여, 필요한 패키지를 설치해아 합니다.
+
+```bash
+./EMSW/Scripts/activate
+python ./main.py
+```
+
+requirements.txt로 필요한 패키지를 설치해아 합니다.
 
 hwp-helper와 pyside6, langchain과 ollama를 사용했습니다.
+
 ollama 로컬 LLM 서버는 별도로 설치해주시기 바랍니다.
 
 <br>
@@ -93,7 +100,7 @@ Wiki View 추가 (구현 안됨)<br>
 <br>
 어쨌든, 모든 정보를 전부 추가하고 난 뒤에는...<br>
 <br>
-v![image](./Image/외모 설정 1.png)<br>
+v![image](./Image/6.png)<br>
 <br>
 명령어를 활용하여 추가적으로 설정을 교정하거나 AI와의 대화를 통해 구체화 할 수 있습니다. 명령어는 다음과 같습니다.<br>
 <br>
@@ -105,10 +112,6 @@ exit > 반드시 설정 후에는 exit 명령을 통해 내용을 저장해야 �
 
 <br>
 
-```bash
-./EMSW/Scripts/activate
-python ./main.py
-```
 <br>
 <br>
 <br>
