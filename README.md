@@ -39,6 +39,7 @@ pip install -r requirements.txt
 <br>
 
 <br>
+
 ```bash
 ./EMSW/Scripts/activate
 python ./main.py
