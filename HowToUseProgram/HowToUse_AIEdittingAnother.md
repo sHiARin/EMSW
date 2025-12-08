@@ -6,6 +6,7 @@
 우선, 이름과 나이만 설정하고 취소를 눌러주세요.
 <br>
 <br>
+
 ![Image](../Image/16.png)<br>
 <br>
 <br>
@@ -31,7 +32,7 @@
 <br>
 <br>
 <br>
-![Image](../Image/19.png)<br>
+![Image](../Image/38.png)<br>
 <br>
 <br>
 그러면 다시 [__여기__](./HowToUse_AIEditting.md)로 넘어가서 편집을 마저 해주도록 합시다.<br>
