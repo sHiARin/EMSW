@@ -36,14 +36,11 @@ cd ./EMSW
 python -m venv EMSW_ENV
 ./EMSW_EN/Scripts/activate
 pip install -r requirements.txt
-```
-<br>
-<br>
-<br>
-
-```
 python ./main.py
 ```
+<br>
+<br>
+<br>
 <br>
 <br>
 requirements.txt로 필요한 패키지를 설치해아 합니다.<br>
