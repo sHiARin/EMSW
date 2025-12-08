@@ -61,7 +61,9 @@ hwp-helper와 pyside6, langchain과 ollama를 사용했습니다.<br>
 <br>
 <br>
 <br>
-개발 과정 내용을 보려면 TODO(./todo)를 참고하세요<br>
+개발 과정 내용을 보려면
+[TODO](./todo)
+를 참고하세요<br>
 <br>
 <br>
 +++ 기존의 기획서와는 이후 개발 중 예기치 못한 오류가 발생하여 사실상 대부분의 개발은 하지 못한 상황입니다.<br>
