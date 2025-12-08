@@ -52,6 +52,7 @@ ollama 로컬 LLM 서버는 별도로 설치해주시기 바랍니다.<br>
 <br>
 <hr>
 이후 사용법은 여기를 참고해 주세요.<br>
+
 [AI 설정법](./HowToUseProgram/HowToUse_AIEditting.md)<br>
 [문서 편집 방법](./HowToUseProgram/HowToEditingDocument.md)<br>
 <br>
