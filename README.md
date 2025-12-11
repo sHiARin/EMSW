@@ -45,7 +45,7 @@ python ./main.py
 <br>
 requirements.txt로 필요한 패키지를 설치해아 합니다.<br>
 hwp-helper와 pyside6, langchain과 ollama를 사용했습니다.<br>
-<h1></h1>테스트 ollama와 gpt-oss:20b를 활용했습니다. 코드 수정 없이 활용하기 위해서는 해당 소프트웨어 및 LLM 모델이 필요합니다.</h1><br>
+<h1></h1>테스트에는 ollama와 gpt-oss:20b를 활용했습니다. 코드 수정 없이 활용하기 위해서는 해당 소프트웨어 및 LLM 모델이 필요합니다.</h1><br>
 <br>
 <br>
 <hr>
