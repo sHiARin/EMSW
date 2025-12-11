@@ -66,7 +66,6 @@
 <br>
 너무 길어서 대답 내용도 짤라야 겠네요.<br>
 <br>
-![Image](../Image/33.png)<br>
 <br>
 ![Image](../Image/33.png)<br>
 <br>
