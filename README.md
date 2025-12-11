@@ -45,7 +45,7 @@ python ./main.py
 <br>
 requirements.txt로 필요한 패키지를 설치해아 합니다.<br>
 hwp-helper와 pyside6, langchain과 ollama를 사용했습니다.<br>
-<h1></h1>실행에는 ollama와 gpt-oss:20b를 활용했습니다. 이것이 꼭 필요합니다.</h1><br>
+<h1></h1>테스트 ollama와 gpt-oss:20b를 활용했습니다. 코드 수정 없이 활용하기 위해서는 해당 소프트웨어 및 LLM 모델이 필요합니다.</h1><br>
 <br>
 <br>
 <hr>
@@ -63,6 +63,3 @@ hwp-helper와 pyside6, langchain과 ollama를 사용했습니다.<br>
 를 참고하세요<br>
 <br>
 <br>
-+++ 기존의 기획서와는 이후 개발 중 예기치 못한 오류가 발생하여 사실상 대부분의 개발은 하지 못한 상황입니다.<br>
-+++ ... 예측 실패! 와아아... (웃음)<br>
-+++ 기말고사 끝난 뒤에 계속 업데이트 해야 겠습니다.<br>
