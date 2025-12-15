@@ -1,6 +1,6 @@
 from PySide6.QtWidgets import QApplication
-from EMSW_UI.core.resource import ProjectConfig, GlobalWorld
-from EMSW_UI.EMSW_MainUI import EMSW
+from core.resource import ProjectConfig, GlobalWorld
+from EMSW_UI.EMSWMainUI import EMSW
 
 import os, json, sys
 
